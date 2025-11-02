@@ -48,4 +48,8 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build
-        run: cargo build --bin plumeimpactor --release
+        run: |
+          cargo install patch-crate
+          cargo fetch --locked
+          cargo patch-crate --force
+          cargo build --bin plumeimpactor --release

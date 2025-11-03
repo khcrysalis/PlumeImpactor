@@ -13,18 +13,11 @@ tokio.workspace = true
 ldid2 = { path = "../../crates/ldid2" }
 grand_slam = { path = "../../crates/grand_slam", features = ["vendored-botan"] }
 types = { path = "../../crates/types"}
-wxdragon = "0.8.30"
+wxdragon = "0.9.2"
 image = { version = "0.25.1", default-features = false, features = ["png"] }
 futures = "0.3.31"
 
-keyring = { version = "3.6.3", features = ["apple-native"], optional = true }
-keyring-core = { version = "0.7.0", optional = true }
-apple-native-keyring-store = { version = "0.2.1", features = ["protected"], optional = true }
-
-[features]
-keyring = ["dep:keyring"]
-keyring_core = ["dep:keyring-core", "dep:apple-native-keyring-store"]
-default = ["keyring"]
+keyring = { version = "3.6.3", default-features = false, features = ["windows-native", "apple-native", "linux-native"] }
 
 [build-dependencies]
 embed-manifest = "1.4"

@@ -238,17 +238,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "apple-native-keyring-store"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10f9955235ce557bd0ea2c64d7ff09a887885f515e98572d2640a29520d9c98c"
-dependencies = [
- "keyring-core",
- "log",
- "security-framework 3.5.1",
-]
-
-[[package]]
 name = "apple-xar"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1315,9 +1304,9 @@ checksum = "1ced73b1dacfc750a6db6c0a0c3a3853c8b41997e2e2c563dc90804ae6867959"
 
 [[package]]
 name = "flate2"
-version = "1.1.2"
+version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a3d7db9596fecd151c5f638c0ee5d5bd487b6e0ea232e5dc96d5250f6f94b1d"
+checksum = "bfe33edd8e85a12a67454e37f8c75e730830d83e313556ab9ebf9ee7fbeb3bfb"
 dependencies = [
  "crc32fast",
  "libz-rs-sys",
@@ -2166,19 +2155,13 @@ version = "3.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eebcc3aff044e5944a8fbaf69eb277d11986064cba30c468730e8b9909fb551c"
 dependencies = [
+ "byteorder",
+ "linux-keyutils",
  "log",
  "security-framework 2.11.1",
  "security-framework 3.5.1",
+ "windows-sys 0.60.2",
  "zeroize",
-]
-
-[[package]]
-name = "keyring-core"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64ad182c4841eb5795af9d20e6e020b65a895517f6a41e6358ed8af74ba35d98"
-dependencies = [
- "log",
 ]
 
 [[package]]
@@ -2262,6 +2245,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "840db8cf39d9ec4dd794376f38acc40d0fc65eec2a8f484f7fd375b84602becd"
 dependencies = [
  "zlib-rs",
+]
+
+[[package]]
+name = "linux-keyutils"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "761e49ec5fd8a5a463f9b84e877c373d888935b71c6be78f3767fe2ae6bed18e"
+dependencies = [
+ "bitflags 2.9.4",
+ "libc",
 ]
 
 [[package]]
@@ -2873,14 +2866,12 @@ dependencies = [
 name = "plumeimpactor"
 version = "0.0.1"
 dependencies = [
- "apple-native-keyring-store",
  "embed-manifest",
  "futures",
  "grand_slam",
  "idevice",
  "image",
  "keyring",
- "keyring-core",
  "ldid2",
  "tokio",
  "types",
@@ -3183,6 +3174,12 @@ dependencies = [
  "syn 2.0.106",
  "uuid",
 ]
+
+[[package]]
+name = "rawzip"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70171b805bd97a69690df1b634104649ad193430aa60d8305dfb9b470fe690a8"
 
 [[package]]
 name = "rayon"
@@ -4049,17 +4046,6 @@ name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
-
-[[package]]
-name = "tar"
-version = "0.4.44"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d863878d212c87a19c1a610eb53bb01fe12951c0501cf5a0d65f724914a667a"
-dependencies = [
- "filetime",
- "libc",
- "xattr",
-]
 
 [[package]]
 name = "tempfile"
@@ -5108,12 +5094,12 @@ checksum = "ea2f10b9bb0928dfb1b42b65e1f9e36f7f54dbdf08457afefb38afcdec4fa2bb"
 
 [[package]]
 name = "wxdragon"
-version = "0.8.30"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a33d6cc76a0ac87ae24ea6595c344c13d3a704486757ca4d3713e08379c7a09"
+checksum = "387582e9b06f1665c4807211e8a768911dfca14bd5fd4920456b4ceb96b82720"
 dependencies = [
  "bitflags 2.9.4",
- "lazy_static",
+ "log",
  "paste",
  "wxdragon-macros",
  "wxdragon-sys",
@@ -5121,9 +5107,9 @@ dependencies = [
 
 [[package]]
 name = "wxdragon-macros"
-version = "0.8.30"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6fb6c47a6840ead6fb9976fe67d31bd81eae4e9899f007ee43291a9267653f2"
+checksum = "22c0e49dbb26c84bba760b56b858982f93e0effcb521e8a6b598ba082fb2616c"
 dependencies = [
  "proc-macro2",
  "quick-xml",
@@ -5133,15 +5119,17 @@ dependencies = [
 
 [[package]]
 name = "wxdragon-sys"
-version = "0.8.30"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b3de839d51d2be358782f4077902784ef2355f1e2bc81837a17b54761bdfe4a"
+checksum = "39c289d767e8334f4d5792b887bad08283b1596240b257db2fae9301cdd925ae"
 dependencies = [
  "bindgen",
+ "cmake",
  "flate2",
  "pkg-config",
+ "rawzip",
  "reqwest 0.12.23",
- "tar",
+ "sha2",
 ]
 
 [[package]]
@@ -5180,16 +5168,6 @@ dependencies = [
  "spki",
  "thiserror 1.0.69",
  "zeroize",
-]
-
-[[package]]
-name = "xattr"
-version = "1.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af3a19837351dc82ba89f8a125e22a3c475f05aba604acc023d62b2739ae2909"
-dependencies = [
- "libc",
- "rustix",
 ]
 
 [[package]]

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use omnisette::AnisetteConfiguration;
 use reqwest::{Certificate, Client, ClientBuilder};
 use tokio::sync::Mutex;
+use std::sync::Arc;
 
 use errors::Error;
 
@@ -13,9 +14,9 @@ use crate::auth::anisette_data::AnisetteData;
 const GSA_ENDPOINT: &str = "https://gsa.apple.com/grandslam/GsService2";
 const APPLE_ROOT: &[u8] = include_bytes!("./apple_root.der");
 
+#[derive(Debug, Clone)]
 pub struct Account {
-    //TODO: move this to omnisette
-    pub anisette: Mutex<AnisetteData>,
+    pub anisette: Arc<Mutex<AnisetteData>>,
     // pub spd:  Option<plist::Dictionary>,
     //mutable spd
     pub spd: Option<plist::Dictionary>,
@@ -36,9 +37,8 @@ impl Account {
             .http1_title_case_headers()
             .connection_verbose(true)
             .build()?;
-        
         Ok(Account {
-            anisette: Mutex::new(anisette),
+            anisette: Arc::new(Mutex::new(anisette)),
             spd: None,
             client,
         })

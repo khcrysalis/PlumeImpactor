@@ -58,7 +58,7 @@ impl SessionRequestTrait for DeveloperSession {
             let code = response_data.result_code.as_signed().unwrap_or(0);
             return Err(Error::DeveloperSession(code, msg.to_string()));
         }
-        
+
         Ok(response)
     }
     

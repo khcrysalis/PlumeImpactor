@@ -4,6 +4,7 @@ use wxdragon::prelude::*;
 pub struct InstallPage {
     pub panel: Panel,
     pub cancel_button: Button,
+    pub install_button: Button,
     pub top_text: StaticText,
 }
 
@@ -15,7 +16,7 @@ pub fn create_install_page(frame: &Frame) -> InstallPage {
     let top_text = StaticText::builder(&panel)
         .with_label("Unknown")
         .build();
-    main_sizer.add(&top_text, 0, SizerFlag::Left | SizerFlag::Top, 10);
+    main_sizer.add(&top_text, 0, SizerFlag::Left | SizerFlag::Top, 14);
 
     main_sizer.add_stretch_spacer(1);
 
@@ -30,16 +31,17 @@ pub fn create_install_page(frame: &Frame) -> InstallPage {
         .build();
 
     button_sizer.add_stretch_spacer(1);
-    button_sizer.add(&cancel_button, 0, SizerFlag::Right, 8);
+    button_sizer.add(&cancel_button, 0, SizerFlag::Right, 12);
     button_sizer.add(&install_button, 0, SizerFlag::All, 0);
 
-    main_sizer.add_sizer(&button_sizer, 0, SizerFlag::Right | SizerFlag::Bottom | SizerFlag::Expand, 10);
+    main_sizer.add_sizer(&button_sizer, 0, SizerFlag::Right | SizerFlag::Bottom | SizerFlag::Expand, 14);
 
     panel.set_sizer(main_sizer, true);
 
     InstallPage {
         panel,
         cancel_button,
+        install_button,
         top_text,
     }
 }
@@ -50,6 +52,12 @@ impl InstallPage {
             on_cancel();
         });
     }
+	
+	pub fn set_install_handler(&self, on_install: impl Fn() + 'static) {
+		self.install_button.on_click(move |_evt| {
+			on_install();
+		});
+	}
 
     pub fn set_top_text(&self, text: &str) {
         self.top_text.set_label(text);

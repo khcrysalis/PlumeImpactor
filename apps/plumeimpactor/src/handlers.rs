@@ -151,7 +151,13 @@ impl PlumeFrameMessageHandler {
             }
             PlumeFrameMessage::AccountLogin(account) => {
                 self.account_credentials = Some(account);
-                println!("Account logged in");
+                let creds = crate::keychain::AccountCredentials;
+                let email = creds.get_email().unwrap_or_else(|_| "(unknown)".to_string());
+                let msg = format!("Logged in as {}", email);
+                let dialog = MessageDialog::builder(&self.plume_frame.frame, &msg, "Signed In")
+                    .with_style(MessageDialogStyle::OK | MessageDialogStyle::IconInformation)
+                    .build();
+                dialog.show_modal();
             }
             PlumeFrameMessage::AccountDeleted => {
                 self.account_credentials = None;

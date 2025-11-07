@@ -246,12 +246,59 @@ impl PlumeFrame {
             });
 
         // --- Apple ID / Login Dialog ---
-		
+        
         let login_dialog_rc = Rc::new(self.login_dialog.clone());
         self.apple_id_button.on_click({
             let login_dialog = login_dialog_rc.clone();
+            let handler_for_account = message_handler.clone();
+            let frame_for_dialog = self.frame.clone();
+            let sender_for_logout = sender.clone();
             move |_| {
-                login_dialog.show_modal();
+                let logged_in = handler_for_account.borrow().account_credentials.is_some();
+                if logged_in {
+                    // Show account status with email and logout option
+                    let creds = AccountCredentials;
+                    let email = creds.get_email().unwrap_or_else(|_| "(unknown)".to_string());
+
+                    let dialog = Dialog::builder(&frame_for_dialog, "Account")
+                        .with_style(DialogStyle::DefaultDialogStyle)
+                        .build();
+
+                    let sizer = BoxSizer::builder(Orientation::Vertical).build();
+                    sizer.add_spacer(12);
+                    let label = StaticText::builder(&dialog)
+                        .with_label(&format!("Logged in as {}", email))
+                        .build();
+                    sizer.add(&label, 0, SizerFlag::All, 12);
+
+                    let buttons = BoxSizer::builder(Orientation::Horizontal).build();
+                    let logout_btn = Button::builder(&dialog).with_label("Log out").build();
+                    let close_btn = Button::builder(&dialog).with_label("Close").build();
+                    buttons.add(&logout_btn, 0, SizerFlag::All, 8);
+                    buttons.add_spacer(8);
+                    buttons.add(&close_btn, 0, SizerFlag::All, 8);
+                    sizer.add_sizer(&buttons, 0, SizerFlag::AlignRight | SizerFlag::All, 8);
+
+                    dialog.set_sizer(sizer, true);
+
+                    let dlg_close = dialog.clone();
+                    close_btn.on_click(move |_| { dlg_close.end_modal(ID_CANCEL as i32); });
+
+                    let dlg_logout = dialog.clone();
+                    let sender_clone = sender_for_logout.clone();
+                    logout_btn.on_click(move |_| {
+                        let creds = AccountCredentials;
+                        let _ = creds.delete_password();
+                        let _ = sender_clone.send(PlumeFrameMessage::AccountDeleted);
+                        dlg_logout.end_modal(ID_OK as i32);
+                    });
+
+                    dialog.show_modal();
+                    dialog.destroy();
+                } else {
+                    // Not logged in, open login dialog
+                    login_dialog.show_modal();
+                }
             }
         });
 
@@ -293,62 +340,51 @@ impl PlumeFrame {
         sender: mpsc::UnboundedSender<PlumeFrameMessage>,
         login_dialog: Rc<LoginDialog>,
     ) {
+        let frame_for_errors = self.frame.clone();
         login_dialog.clone().set_next_handler(move || {
             let email = login_dialog.get_email();
             let password = login_dialog.get_password();
-            let creds = AccountCredentials;
 
-            match creds.credentials_exist(email.clone(), password.clone()) {
-                Ok(true) => {
-                    creds.delete_password().ok();
-                    sender
-                        .send(PlumeFrameMessage::Error(
-                            "Account already exists.".to_string(),
-                        ))
-                        .ok();
-                }
-                Ok(false) => {
-                    let sender_for_login_thread = sender.clone();
-
-                    thread::spawn(move || {
-                        match run_login_flow(
-                            sender_for_login_thread.clone(),
-                            email.clone(),
-                            password.clone(),
-                        ) {
-                            Ok(account) => {
-                                if let Err(e) =
-                                    creds.set_credentials(email.clone(), password.clone())
-                                {
-                                    sender_for_login_thread
-                                        .send(PlumeFrameMessage::Error(format!(
-                                            "Keychain error: {}",
-                                            e
-                                        )))
-                                        .ok();
-                                }
-
-                                sender_for_login_thread
-                                    .send(PlumeFrameMessage::AccountLogin(account))
-                                    .ok();
-                            }
-                            Err(e) => {
-                                sender_for_login_thread
-                                    .send(PlumeFrameMessage::Error(format!("Login error: {}", e)))
-                                    .ok();
-                            }
-                        }
-                    });
-                }
-                Err(e) => {
-                    sender
-                        .send(PlumeFrameMessage::Error(format!("Keychain error: {}", e)))
-                        .ok();
-                }
+            if email.trim().is_empty() || password.is_empty() {
+                let dialog = MessageDialog::builder(
+                    &frame_for_errors,
+                    "Please enter both email and password.",
+                    "Missing Information",
+                )
+                .with_style(MessageDialogStyle::OK | MessageDialogStyle::IconWarning)
+                .build();
+                dialog.show_modal();
+                return;
             }
 
+            // Save credentials to keyring
+            let creds = AccountCredentials;
+            if let Err(e) = creds.set_credentials(email.clone(), password.clone()) {
+                let _ = sender
+                    .send(PlumeFrameMessage::Error(format!(
+                        "Failed to save credentials: {}",
+                        e
+                    )));
+                return;
+            }
+
+            // Hide dialog before starting login
             login_dialog.clear_fields();
             login_dialog.hide();
+
+            let sender_for_login_thread = sender.clone();
+            thread::spawn(move || {
+                match run_login_flow(sender_for_login_thread.clone(), email, password) {
+                    Ok(account) => {
+                        let _ = sender_for_login_thread
+                            .send(PlumeFrameMessage::AccountLogin(account));
+                    }
+                    Err(e) => {
+                        let _ = sender_for_login_thread
+                            .send(PlumeFrameMessage::Error(format!("Login failed: {}", e)));
+                    }
+                }
+            });
         });
     }
 
@@ -403,22 +439,46 @@ impl PlumeFrame {
         let dialog = Dialog::builder(&self.frame, title)
             .with_style(DialogStyle::DefaultDialogStyle)
             .build();
-    
+
         let sizer = BoxSizer::builder(Orientation::Vertical).build();
         sizer.add_spacer(16);
-    
+
         let field_label = StaticText::builder(&dialog).with_label(label).build();
         let text_field = TextCtrl::builder(&dialog).build();
         sizer.add(&field_label, 0, SizerFlag::All, 12);
         sizer.add(&text_field, 0, SizerFlag::Expand | SizerFlag::All, 8);
-    
+
+        // Buttons row
+        let buttons = BoxSizer::builder(Orientation::Horizontal).build();
+        let cancel_btn = Button::builder(&dialog).with_label("Cancel").build();
+        let ok_btn = Button::builder(&dialog).with_label("OK").build();
+        buttons.add(&cancel_btn, 0, SizerFlag::All, 8);
+        buttons.add_spacer(8);
+        buttons.add(&ok_btn, 0, SizerFlag::All, 8);
+        sizer.add_sizer(&buttons, 0, SizerFlag::AlignRight | SizerFlag::All, 8);
+
         dialog.set_sizer(sizer, true);
-    
-        dialog.show_modal();
-        let value = text_field.get_value().to_string();
+
+        // Wire buttons to end the modal with appropriate return codes
+        let dlg_for_cancel = dialog.clone();
+        cancel_btn.on_click(move |_| {
+            dlg_for_cancel.end_modal(ID_CANCEL as i32);
+        });
+        let dlg_for_ok = dialog.clone();
+        ok_btn.on_click(move |_| {
+            dlg_for_ok.end_modal(ID_OK as i32);
+        });
+
+        text_field.set_focus();
+
+        let rc = dialog.show_modal();
+        let result = if rc == ID_OK as i32 {
+            Ok(text_field.get_value().to_string())
+        } else {
+            Err("2FA cancelled".to_string())
+        };
         dialog.destroy();
-        println!("2FA code entered: {}", value);
-        Ok(value)
+        result
     }
 }
 

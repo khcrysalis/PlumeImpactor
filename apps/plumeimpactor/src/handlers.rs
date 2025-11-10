@@ -182,9 +182,11 @@ impl PlumeFrameMessageHandler {
             }
         }
     }
+}
 
-    // --- Device Picker Helpers ---
+// USBMUXD HANDLERS
 
+impl PlumeFrameMessageHandler {
     fn usbmuxd_picker_rebuild_contents(&self) {
         self.plume_frame.usbmuxd_picker.clear();
         for item_string in &self.usbmuxd_device_list {

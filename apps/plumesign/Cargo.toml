@@ -8,9 +8,11 @@ repository.workspace = true
 
 [dependencies]
 plist.workspace = true
+tokio.workspace = true
 ldid2 = { path = "../../crates/ldid2" }
 grand_slam = { path = "../../crates/grand_slam", features = ["vendored-botan"] }
 types = { path = "../../crates/types"}
+rustls = { version = "0.23.32", features = ["ring"] }
 
 clap = { version = "4.5", features = ["derive"] }
 openssl = { version = "0.10", features = ["vendored"] }

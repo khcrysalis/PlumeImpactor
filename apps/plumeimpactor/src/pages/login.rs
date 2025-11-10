@@ -17,10 +17,6 @@ pub fn create_login_dialog(parent: &Window) -> LoginDialog {
     let sizer = BoxSizer::builder(Orientation::Vertical).build();
     sizer.add_spacer(12);
 
-    let description = StaticText::builder(&dialog)
-		.with_label("In order to use the main features for PlumeImpactor, you will\nneed to sign into your Apple ID. But don't worry! Your\ncredentials are sent to Apple and not anywhere else!")
-		.build();
-	sizer.add(&description, 0, SizerFlag::Expand | SizerFlag::Left | SizerFlag::Right, 12);
 
 	let email_row = BoxSizer::builder(Orientation::Horizontal).build();
 	let email_label = StaticText::builder(&dialog)

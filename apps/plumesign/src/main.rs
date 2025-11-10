@@ -1,11 +1,15 @@
 use std::path::PathBuf;
 use std::process::exit;
+use std::sync::Arc;
 
 use clap::Parser;
 
+use grand_slam::AnisetteConfiguration;
+use grand_slam::auth::Account;
 use ldid2::certificate::Certificate;
 use ldid2::signing::signer::Signer;
 use ldid2::signing::signer_settings::SignerSettings;
+use rustls::crypto::CryptoProvider;
 use types::Bundle;
 
 #[derive(Debug, Parser)]
@@ -19,8 +23,11 @@ pub struct Cli {
     // bundle: PathBuf,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = Cli::parse();
+
+    rustls::crypto::ring::default_provider().install_default().expect("Failed to install rustls crypto provider");
 
     // if cli.pem_files.len() < 2 {
     //     eprintln!("Please provide at least two PEM files (certificate and key) using --pem.");
@@ -65,7 +72,6 @@ fn main() {
     //         exit(1);
     //     }
     // }
-    
-    
+
     
 }

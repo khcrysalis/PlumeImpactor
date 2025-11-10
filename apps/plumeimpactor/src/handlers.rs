@@ -4,7 +4,7 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use std::sync::mpsc as std_mpsc;
 
-use grand_slam::{auth::Account, developer::DeveloperSession};
+use grand_slam::auth::Account;
 use types::{Device, Package, PlistInfoTrait};
 
 use crate::frame::PlumeFrame;
@@ -153,7 +153,7 @@ impl PlumeFrameMessageHandler {
                 self.account_credentials = Some(account);
                 let creds = crate::keychain::AccountCredentials;
                 let email = creds.get_email().unwrap_or_else(|_| "(unknown)".to_string());
-                let msg = format!("Logged in as {}", email);
+                let msg = format!("Logged in as {:?} ({})", self.account_credentials.clone().unwrap().get_name(), email);
                 let dialog = MessageDialog::builder(&self.plume_frame.frame, &msg, "Signed In")
                     .with_style(MessageDialogStyle::OK | MessageDialogStyle::IconInformation)
                     .build();

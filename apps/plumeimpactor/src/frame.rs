@@ -27,6 +27,7 @@ pub struct PlumeFrame {
     pub install_page: InstallPage,
     pub usbmuxd_picker: Choice,
 
+    pub add_ipa_button: Button,
     pub apple_id_button: Button,
     pub login_dialog: LoginDialog,
 }
@@ -44,9 +45,12 @@ impl PlumeFrame {
         let top_panel = Panel::builder(&frame).build();
         let top_row = BoxSizer::builder(Orientation::Horizontal).build();
 
+        let add_ipa_button = Button::builder(&top_panel).with_label("+").build();
         let device_picker = Choice::builder(&top_panel).build();
         let apple_id_button = Button::builder(&top_panel).with_label("Account").build();
 
+        top_row.add(&add_ipa_button, 0, SizerFlag::All, 0);
+        top_row.add_spacer(12);
         top_row.add(&device_picker, 1, SizerFlag::Expand | SizerFlag::All, 0);
         top_row.add_spacer(12);
         top_row.add(&apple_id_button, 0, SizerFlag::All, 0);
@@ -76,6 +80,7 @@ impl PlumeFrame {
             default_page,
             install_page,
             usbmuxd_picker: device_picker,
+            add_ipa_button,
             apple_id_button,
             login_dialog: create_login_dialog(&frame),
         };
@@ -255,8 +260,8 @@ impl PlumeFrame {
             let sender_for_logout = sender.clone();
             move |_| {
                 let logged_in = handler_for_account.borrow().account_credentials.is_some();
+
                 if logged_in {
-                    // Show account status with email and logout option
                     let creds = AccountCredentials;
                     let email = creds.get_email().unwrap_or_else(|_| "(unknown)".to_string());
 
@@ -267,22 +272,16 @@ impl PlumeFrame {
                     let sizer = BoxSizer::builder(Orientation::Vertical).build();
                     sizer.add_spacer(12);
                     let label = StaticText::builder(&dialog)
-                        .with_label(&format!("Logged in as {}", email))
+                        .with_label(&format!("Logged in as {:?} ({})", handler_for_account.borrow().account_credentials.clone().unwrap().get_name(), email))
                         .build();
                     sizer.add(&label, 0, SizerFlag::All, 12);
 
                     let buttons = BoxSizer::builder(Orientation::Horizontal).build();
                     let logout_btn = Button::builder(&dialog).with_label("Log out").build();
-                    let close_btn = Button::builder(&dialog).with_label("Close").build();
                     buttons.add(&logout_btn, 0, SizerFlag::All, 8);
-                    buttons.add_spacer(8);
-                    buttons.add(&close_btn, 0, SizerFlag::All, 8);
                     sizer.add_sizer(&buttons, 0, SizerFlag::AlignRight | SizerFlag::All, 8);
 
                     dialog.set_sizer(sizer, true);
-
-                    let dlg_close = dialog.clone();
-                    close_btn.on_click(move |_| { dlg_close.end_modal(ID_CANCEL as i32); });
 
                     let dlg_logout = dialog.clone();
                     let sender_clone = sender_for_logout.clone();
@@ -296,7 +295,6 @@ impl PlumeFrame {
                     dialog.show_modal();
                     dialog.destroy();
                 } else {
-                    // Not logged in, open login dialog
                     login_dialog.show_modal();
                 }
             }
@@ -389,14 +387,17 @@ impl PlumeFrame {
     }
 
     fn bind_file_handlers(&self, sender: mpsc::UnboundedSender<PlumeFrameMessage>) {
-        let handler_for_import = self.frame.clone();
-
         self.default_page.set_file_handlers(
             {
                 let sender = sender.clone();
                 move |file_path| Self::process_package_file(sender.clone(), PathBuf::from(file_path))
             },
-            move || {
+        );
+
+        self.add_ipa_button.on_click({
+            let sender = sender.clone();
+            let handler_for_import = self.frame.clone();
+            move |_| {
                 let dialog = FileDialog::builder(&handler_for_import)
                     .with_message("Open IPA File")
                     .with_style(FileDialogStyle::default() | FileDialogStyle::Open)
@@ -409,8 +410,8 @@ impl PlumeFrame {
                 if let Some(file_path) = dialog.get_path() {
                     Self::process_package_file(sender.clone(), PathBuf::from(file_path));
                 }
-            },
-        );
+            }
+        });
     }
 
     /// This de-duplicates logic from the file handlers.
@@ -459,7 +460,6 @@ impl PlumeFrame {
 
         dialog.set_sizer(sizer, true);
 
-        // Wire buttons to end the modal with appropriate return codes
         let dlg_for_cancel = dialog.clone();
         cancel_btn.on_click(move |_| {
             dlg_for_cancel.end_modal(ID_CANCEL as i32);
@@ -489,6 +489,7 @@ fn run_login_flow(
 ) -> Result<Account, String> {
     let anisette_config =
         AnisetteConfiguration::default().set_configuration_path(env::temp_dir());
+    // println!("Anisette config path: {:?}", env::temp_dir());
 
     let rt = match Builder::new_current_thread().enable_all().build() {
         Ok(rt) => rt,

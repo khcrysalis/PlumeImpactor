@@ -32,10 +32,4 @@ impl AccountCredentials {
 		entry_pass.delete_credential()?;
 		Ok(())
 	}
-
-	pub fn credentials_exist(&self, email: String, password: String) -> Result<bool, Error> {
-		let stored_email = self.get_email().unwrap_or_default();
-		let stored_password = self.get_password().unwrap_or_default();
-		Ok(stored_email == email && stored_password == password)
-	}
 }

@@ -180,7 +180,12 @@ impl PlumeFrameMessageHandler {
                         "Waiting...",
                         100
                     )
-                    .show_estimated_time().show_remaining_time().smooth().build();
+                    .show_elapsed_time()
+                    .show_estimated_time()
+                    .show_remaining_time()
+                    .smooth()
+                    .build();
+                
                     self.installation_progress_dialog = Some(progress_dialog);
                 }
 

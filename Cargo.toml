@@ -10,7 +10,7 @@ members = [
 edition = "2024"
 version = "0.0.1"
 authors = ["khcrysalis <s03781614@icloud.com>"]
-license = "GPL-3.0-or-later"
+license = "MIT"
 repository = "https://github.com/khcrysalis/plumestore"
 
 [workspace.dependencies]

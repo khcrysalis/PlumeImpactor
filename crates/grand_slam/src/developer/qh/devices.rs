@@ -41,6 +41,15 @@ impl DeveloperSession {
         
         Ok(device)
     }
+    
+    pub async fn qh_ensure_device(&self, team_id: &str, device_name: &str, device_udid: &str) -> Result<Device, Error> {
+        if let Some(device) = self.qh_get_device(team_id, device_udid).await? {
+            Ok(device)
+        } else {
+            let response = self.qh_add_device(team_id, device_name, device_udid).await?;
+            Ok(response.device)
+        }
+    }
 }
 
 #[allow(dead_code)]

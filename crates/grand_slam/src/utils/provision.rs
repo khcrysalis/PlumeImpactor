@@ -21,11 +21,23 @@ impl MobileProvision {
             return Err(Error::ProvisioningEntitlementsUnknown);
         }
 
-        let provisioning_plist = Self::extract_plist_from_file(path)?;
+        let profile_data = fs::read(path)?;
+        let provisioning_plist = Self::extract_plist_from_file(&profile_data)?;
+        let entitlements = Self::extract_entitlements(&provisioning_plist)?;
+        
+        Ok(Self {
+            provision_file: path.to_path_buf(),
+            provisioning_plist,
+            entitlements,
+        })
+    }
+    
+    pub fn load_from_bytes(data: &[u8]) -> Result<Self, Error> {
+        let provisioning_plist = Self::extract_plist_from_file(data)?;
         let entitlements = Self::extract_entitlements(&provisioning_plist)?;
 
         Ok(Self {
-            provision_file: path.to_path_buf(),
+            provision_file: PathBuf::new(),
             provisioning_plist,
             entitlements,
         })
@@ -118,8 +130,7 @@ impl MobileProvision {
         }
     }
 
-    fn extract_plist_from_file(path: &Path) -> Result<Value, Error> {
-        let data = fs::read(path)?;
+    fn extract_plist_from_file(data: &[u8]) -> Result<Value, Error> {
         let start = data.windows(6).position(|w| w == b"<plist").ok_or(Error::ProvisioningEntitlementsUnknown)?;
         let end = data.windows(8).rposition(|w| w == b"</plist>").ok_or(Error::ProvisioningEntitlementsUnknown)? + 8;
         let plist_data = &data[start..end];

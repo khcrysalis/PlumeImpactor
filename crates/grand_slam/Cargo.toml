@@ -3,7 +3,7 @@ name = "grand_slam"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
-license.workspace = true
+license = "MPL-2.0"
 repository.workspace = true
 
 [package.metadata.patch]

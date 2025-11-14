@@ -140,10 +140,6 @@ impl AccountDialog {
         self.dialog.show_modal();
     }
 
-    pub fn hide(&self) {
-        self.dialog.end_modal(0);
-    }
-
     pub fn set_logout_handler(&self, on_logout: impl Fn() + 'static) {
         let dialog = self.dialog.clone();
         self.logout_button.on_click(move |_| {

@@ -181,6 +181,12 @@ impl PlistInfoTrait for Bundle {
     }
 }
 
+impl Bundle {
+    pub fn is_sidestore(&self) -> bool {
+        matches!(self.get_bundle_identifier().as_deref(), Some("com.SideStore.SideStore"))
+    }
+}
+
 fn collect_embeded_bundles_from_dir(dir: &PathBuf) -> Result<Vec<Bundle>, Error> {
     let mut bundles = Vec::new();
     

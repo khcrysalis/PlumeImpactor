@@ -8,6 +8,17 @@ use crate::Error;
 
 pub const CONNECTION_LABEL: &str = "plume";
 
+macro_rules! get_dict_string {
+    ($dict:expr, $key:expr) => {
+        $dict
+            .as_dictionary()
+            .and_then(|dict| dict.get($key))
+            .and_then(|v| v.as_string())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "".to_string())
+    };
+}
+
 #[derive(Debug, Clone)]
 pub struct Device {
     pub name: String,
@@ -17,12 +28,23 @@ pub struct Device {
 
 impl Device {
     pub async fn new(usbmuxd_device: UsbmuxdDevice) -> Self {
-        let name = get_name_from_usbmuxd_device(&usbmuxd_device).await.unwrap_or_default();
-        Device { 
-            name, 
+        let name = Self::get_name_from_usbmuxd_device(&usbmuxd_device)
+            .await
+            .unwrap_or_default();
+        
+        Device {
+            name,
             uuid: usbmuxd_device.udid.clone(),
             usbmuxd_device 
         }
+    }
+    
+    async fn get_name_from_usbmuxd_device(
+        device: &UsbmuxdDevice,
+    ) -> Result<String, Error> {
+        let mut lockdown = LockdownClient::connect(&device.to_provider(UsbmuxdAddr::default(), CONNECTION_LABEL)).await?;
+        let values = lockdown.get_value(None, None).await?;
+        Ok(get_dict_string!(values, "DeviceName"))
     }
 }
 
@@ -39,23 +61,4 @@ impl fmt::Display for Device {
             self.name
         )
     }
-}
-
-macro_rules! get_dict_string {
-    ($dict:expr, $key:expr) => {
-        $dict
-            .as_dictionary()
-            .and_then(|dict| dict.get($key))
-            .and_then(|v| v.as_string())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| "".to_string())
-    };
-}
-
-async fn get_name_from_usbmuxd_device(
-    device: &UsbmuxdDevice,
-) -> Result<String, Error> {
-    let mut lockdown = LockdownClient::connect(&device.to_provider(UsbmuxdAddr::default(), CONNECTION_LABEL)).await?;
-    let values = lockdown.get_value(None, None).await?;
-    Ok(get_dict_string!(values, "DeviceName"))
 }

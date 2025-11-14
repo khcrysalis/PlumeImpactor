@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::{env, ptr, thread};
+use std::{env, fs, ptr, thread};
 
-use grand_slam::AnisetteConfiguration;
+use grand_slam::{AnisetteConfiguration, BundleType, MachO, MobileProvision};
 use grand_slam::auth::Account;
 use grand_slam::developer::DeveloperSession;
 use grand_slam::utils::PlistInfoTrait;
@@ -311,12 +311,9 @@ impl PlumeFrame {
                 let rt = Builder::new_current_thread().enable_all().build().unwrap();
 
                 let install_result = rt.block_on(async {
-                    let anisette_config = AnisetteConfiguration::default()
-                        .set_configuration_path(PathBuf::from(env::temp_dir()));
-
                     let session = DeveloperSession::with(account.clone());
                     
-                    sender_clone.send(PlumeFrameMessage::InstallProgress(0, Some("Ensuring device is registered...".to_string()))).ok();
+                    sender_clone.send(PlumeFrameMessage::InstallProgress(10, Some("Ensuring current device is registered...".to_string()))).ok();
 
                     let mut usbmuxd = UsbmuxdConnection::default().await
                         .map_err(|e| format!("usbmuxd connect error: {e}"))?;
@@ -326,17 +323,151 @@ impl PlumeFrame {
                         .find(|d| d.device_id.to_string() == device_id)
                         .ok_or_else(|| format!("Device ID {device_id} not found"))?;
 
-                    let mut lockdown = LockdownClient::connect(
-                        &usbmuxd_device.to_provider(UsbmuxdAddr::default(), "plume_install")
-                    )
-                    .await
-                    .map_err(|e| format!("lockdown connect error: {e}"))?;
+                    let device = Device::new(usbmuxd_device).await;
+                    
+                    // TODO: Handle multiple teams properly
+                    let teams = session.qh_list_teams().await.map_err(|e| format!("Failed to list teams: {}", e))?;
+                    
+                    session.qh_ensure_device(
+                        &teams.teams.get(0)
+                            .ok_or("No teams available for the Apple ID account.")?
+                            .team_id,
+                        &device.name,
+                        &device.uuid,
+                    ).await.map_err(|e| format!("Failed to ensure device is registered: {}", e))?;
+                    
+                    let bundle = package.get_package_bundle()
+                        .map_err(|e| format!("Failed to get package bundle: {}", e))?;
+                    let bundles = bundle.collect_bundles_sorted()
+                        .map_err(|e| format!("Failed to collect bundles: {}", e))?;
+                    
+                    let team_id = &teams.teams.get(0)
+                        .ok_or("No teams available for the Apple ID account.")?
+                        .team_id;
+                    
+                    let bundle_identifier = bundle.get_bundle_identifier()
+                        .ok_or("Failed to get bundle identifier from package.")?;
 
+                    let new_id = new_identifier(&bundle_identifier, team_id);
+
+                    fn new_identifier(original: &str, team_id: &str) -> String {
+                        format!("{}.{}", original, team_id)
+                    }
+                    
+                    if let Some(old_identifier) = bundle.get_bundle_identifier() {
+                        for embedded_bundle in &bundles {
+                            embedded_bundle.set_matching_identifier(
+                                &old_identifier,
+                                &new_id,
+                            ).map_err(|e| format!("Failed to set matching identifier: {}", e))?;
+                        }
+                    }
+
+                    let mut provisionings: Vec<MobileProvision> = Vec::new();
+
+                    for bundle in &bundles {
+                        if 
+                            bundle._type != BundleType::AppExtension &&
+                            bundle._type != BundleType::App 
+                           {
+                            continue;
+                        }
+
+                        sender_clone.send(PlumeFrameMessage::InstallProgress(
+                            20,
+                            Some(format!("Registering {}...", bundle.get_name().unwrap_or_default()))
+                        )).ok();
+
+                        let bundle_executable_name = bundle.get_executable()
+                            .ok_or("Failed to get executable from bundle.")?;
+                        
+                        let bundle_executable_path = bundle.dir().join(&bundle_executable_name);
+                        
+                        let macho = MachO::new(&bundle_executable_path)
+                            .map_err(|e| format!("Failed to read Mach-O binary: {}", e))?;
+                        
+                        let macho_entitlements = macho.entitlements()
+                            .map_err(|e| format!("Failed to get entitlements from Mach-O binary: {}", e))?;
+                        
+                        let id = bundle.get_bundle_identifier()
+                            .ok_or("Failed to get bundle identifier from bundle.")?;
+                                                
+                        let app_groups: Vec<String> = macho_entitlements
+                            .as_ref()
+                            .and_then(|dict| dict.get("com.apple.security.application-groups"))
+                            .and_then(|val| val.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|v| v.as_string().map(|s| format!("{}.{}", s, team_id)))
+                                    .collect()
+                            })
+                            .unwrap_or_else(Vec::new);
+
+                        session.qh_ensure_app_id(team_id, &bundle.get_name().unwrap_or_default(), &id)
+                            .await
+                            .map_err(|e| format!("Failed to ensure app ID: {}", e))?;
+                        
+                        let capabilities = session.v1_list_capabilities(team_id).await
+                            .map_err(|e| format!("Failed to list capabilities: {}", e))?;
+                                                
+                        println!("Mach-O Entitlements: {:?}", &macho_entitlements);
+                        
+                        let mut capabilities_to_enable = Vec::new();
+                        
+                        if let Some(entitlements) = &macho_entitlements {
+                            for (ent_key, _) in entitlements {
+                                for cap in &capabilities.data {
+                                    if let Some(ent_list) = &cap.attributes.entitlements {
+                                        if ent_list.iter().any(|e| e.profile_key == *ent_key) {
+                                            capabilities_to_enable.push(cap.id.clone());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        println!("Enabling capabilities: {:?}", &capabilities_to_enable);
+                        
+                        let app_id_id = session.qh_get_app_id(team_id, &id).await
+                            .map_err(|e| e.to_string())?
+                            .ok_or("Failed to get ensured app ID.")?;
+
+                        if !capabilities_to_enable.is_empty() {
+                            session.v1_update_app_id(team_id, &id, capabilities_to_enable)
+                                .await
+                                .map_err(|e| format!("Failed to enable capabilities: {}", e))?;
+                        }
+                        
+                        for group in &app_groups {
+                            let group_id = session.qh_ensure_app_group(team_id, group, group)
+                                .await
+                                .map_err(|e| format!("Failed to ensure app group: {}", e))?;
+
+                            println!("{:#?}", group_id);
+
+                            session.qh_assign_app_group(team_id, &app_id_id.app_id_id, &group_id.application_group)
+                                .await
+                                .map_err(|e| format!("Failed to add app group to app ID: {}", e))?;
+                        }
+
+                        let profiles = session.qh_get_profile(team_id, &app_id_id.app_id_id).await
+                            .map_err(|e| format!("Failed to list profiles: {}", e))?;
+
+                        let profile_data = profiles.provisioning_profile.encoded_profile;
+                        
+                        let mobile_provision = MobileProvision::load_from_bytes(profile_data.as_ref())
+                            .map_err(|e| format!("Failed to load mobile provision: {}", e))?;
+                        
+                        provisionings.push(mobile_provision);
+                    }
+                    
+                    sender_clone.send(PlumeFrameMessage::InstallProgress(30, Some("Downloading Certificates...".to_string()))).ok();
+                    
                     Ok::<_, String>(())
                 });
 
                 if let Err(e) = install_result {
-                    sender_clone.send(PlumeFrameMessage::InstallProgress(100, Some(format!("Install failed: {}", e)))).ok();
+                    sender_clone.send(PlumeFrameMessage::InstallProgress(99, Some(format!("{}", e)))).ok();
                     return;
                 }
             });

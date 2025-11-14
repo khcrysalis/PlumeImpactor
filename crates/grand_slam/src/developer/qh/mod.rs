@@ -4,6 +4,7 @@ pub mod app_ids;
 pub mod certs;
 pub mod devices;
 pub mod teams;
+pub mod profile;
 
 use serde::Deserialize;
 use plist::Integer;

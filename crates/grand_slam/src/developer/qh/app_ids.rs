@@ -18,7 +18,7 @@ impl DeveloperSession {
 
         Ok(response_data)
     }
-    
+
     pub async fn qh_add_app_id(&self, team_id: &str, name: &str, identifier: &str) -> Result<AppIDResponse, Error> {
         let endpoint = developer_endpoint!("/QH65B2/ios/addAppId.action");
         
@@ -26,7 +26,7 @@ impl DeveloperSession {
         body.insert("teamId".to_string(), Value::String(team_id.to_string()));
         body.insert("name".to_string(), Value::String(name.to_string()));
         body.insert("identifier".to_string(), Value::String(identifier.to_string()));
-        
+
         let response = self.qh_send_request(&endpoint, Some(body)).await?;
         let response_data: AppIDResponse = plist::from_value(&Value::Dictionary(response))?;
 
@@ -71,6 +71,15 @@ impl DeveloperSession {
 
         Ok(app_id)
     }
+
+    pub async fn qh_ensure_app_id(&self, team_id: &str, name: &str, identifier: &String) -> Result<AppID, Error> {
+        if let Some(app_id) = self.qh_get_app_id(team_id, identifier).await? {
+            Ok(app_id)
+        } else {
+            let response = self.qh_add_app_id(team_id, name, identifier).await?;
+            Ok(response.app_id)
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -95,20 +104,20 @@ pub struct AppIDResponse {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AppID {
-    app_id_id: String,
+    pub app_id_id: String,
     name: String,
     app_id_platform: String,
     prefix: String,
-    identifier: String,
+    pub identifier: String,
     is_wild_card: bool,
     is_duplicate: bool,
     features: Features,
     enabled_features: Option<Vec<String>>,
     is_dev_push_enabled: bool,
     is_prod_push_enabled: bool,
-    associated_application_groups_count: Integer,
-    associated_cloud_containers_count: Integer,
-    associated_identifiers_count: Integer,
+    associated_application_groups_count: Option<Integer>,
+    associated_cloud_containers_count: Option<Integer>,
+    associated_identifiers_count: Option<Integer>,
 }
 
 #[allow(dead_code)]

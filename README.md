@@ -15,11 +15,11 @@ The project is seperated in multiple modules, all serve single or multiple uses 
 | `apps/plumeimpactor` | GUI interface for the crates shown below, backend using wxWidgets (with a rust ffi wrapper, wxDragon)                         |
 | `apps/plumesign`     | CLI interface for the crates shown below, using `clap`.                                                                       |
 | `crates/grand_slam`  | Handles all api request used for communicating with Apple developer services, along with providing auth for Apple's grandslam |
-| `crates/ldid2`       | Wrapper for applecodesign-rs with additional features, specifically made to support iOS sideloading and app modifications     |
 
 ## Acknowledgements
 
-- [Samara](https://github.com/khcrysalis) - ME!
-- [apple-private-apis](https://github.com/SideStore/apple-private-apis) - Grandslam auth & Omnisette.
-- [apple-codesign-rs](https://github.com/indygreg/apple-platform-rs) - Open-source alternative to codesign.
-- [idevice](https://github.com/jkcoxson/idevice) - Used for communication with `installd`, specifically for sideloading the apps to your devices.
+- [SAMSAM](https://github.com/khcrysalis) – The maker.
+- [SideStore](https://github.com/SideStore/apple-private-apis) – Grandslam auth & Omnisette.
+- [Sideloader](https://github.com/Dadoum/Sideloader) – Apple Developer API references.
+- [idevice](https://github.com/jkcoxson/idevice) – Used for communication with `installd`, specifically for sideloading the apps to your devices.
+- [apple-codesign-rs](https://github.com/indygreg/apple-platform-rs) – Open-source alternative to codesign.

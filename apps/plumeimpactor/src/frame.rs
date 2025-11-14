@@ -40,7 +40,7 @@ impl PlumeFrame {
         let frame = Frame::builder()
             .with_title(APP_NAME)
             .with_size(Size::new(530, 410))
-            .with_style(FrameStyle::CloseBox | FrameStyle::MinimizeBox)
+            .with_style(FrameStyle::CloseBox | FrameStyle::MinimizeBox | FrameStyle::Caption | FrameStyle::SystemMenu)
             .build();
 
         let sizer = BoxSizer::builder(Orientation::Vertical).build();

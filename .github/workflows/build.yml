@@ -54,24 +54,29 @@ jobs:
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install cargo-bundle
-        run: cargo install cargo-bundle
-
-      - name: Build & Bundle
+      - name: Build Dependencies 
         run: |
           cargo install patch-crate
           cargo fetch --locked || true
           cargo patch-crate --force
-          
-          if [[ "${{ runner.os }}" == "Linux" ]]; then
-            cargo bundle --bin plumeimpactor --package plumeimpactor --format rpm
-            cargo bundle --bin plumeimpactor --package plumeimpactor --format deb
-            cargo bundle --bin plumeimpactor --package plumeimpactor --format appimage
-          elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            cargo bundle --bin plumeimpactor --package plumeimpactor --format dmg
-          elif [[ "${{ runner.os }}" == "Windows" ]]; then
-            cargo bundle --bin plumeimpactor --package plumeimpactor --format exe
-          fi
+          cargo install cargo-bundle
+
+      - name: Build & Bundle (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cargo bundle --bin plumeimpactor --package plumeimpactor --format rpm
+          cargo bundle --bin plumeimpactor --package plumeimpactor --format deb
+          cargo bundle --bin plumeimpactor --package plumeimpactor --format appimage
+
+      - name: Build & Bundle (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cargo bundle --bin plumeimpactor --package plumeimpactor --format dmg
+
+      - name: Build & Bundle (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cargo bundle --bin plumeimpactor --package plumeimpactor --format exe
 
       - name: Upload Bundles
         uses: actions/upload-artifact@v4

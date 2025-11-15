@@ -85,4 +85,6 @@ jobs:
         with:
           name: plumeimpactor-${{ matrix.platform }}
           path: |
-            target/release/bundle/**/*.{rpm,deb,AppImage,dmg,exe,msi}
+            target/release/bundle/appimage/*.AppImage
+            target/release/bundle/osx/*.dmg
+            target/release/bundle/msi/*.msi

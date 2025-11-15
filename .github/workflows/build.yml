@@ -73,7 +73,7 @@ jobs:
           mkdir build
           cp -R target/release/bundle/*/*.app build/
           ln -s /Applications build/Applications
-          hdiutil create -volname plumeimpactor -srcfolder build -ov -format UDZO target/release/bundle/plumeimpactor.dmg
+          hdiutil create -volname plumeimpactor -srcfolder build -ov -format UDZO target/release/bundle/osx/plumeimpactor.dmg
 
       - name: Build & Bundle (Windows)
         if: runner.os == 'Windows'
@@ -85,4 +85,4 @@ jobs:
         with:
           name: plumeimpactor-${{ matrix.platform }}
           path: |
-            target/release/bundle/*/*.{rpm,deb,AppImage,dmg,exe,msi}
+            target/release/bundle/**/*.{rpm,deb,AppImage,dmg,exe,msi}

@@ -78,7 +78,7 @@ jobs:
       - name: Build & Bundle (Windows)
         if: runner.os == 'Windows'
         run: |
-          cargo bundle --bin plumeimpactor --package plumeimpactor --release --format msi
+          cargo build --bin plumeimpactor --release
 
       - name: Upload Bundles
         uses: actions/upload-artifact@v4
@@ -88,3 +88,4 @@ jobs:
             target/release/bundle/appimage/*.AppImage
             target/release/bundle/osx/*.dmg
             target/release/bundle/msi/*.msi
+            target/release/*.exe

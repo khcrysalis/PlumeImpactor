@@ -330,16 +330,14 @@ impl PlumeFrame {
                         .ok_or("No teams available for the Apple ID account.")?
                         .team_id;
                     
-                    let device = session.qh_ensure_device(
+                    session.qh_ensure_device(
                         team_id,
                         &device.name,
                         &device.uuid,
                     )
                     .await
                     .map_err(|e| format!("Failed to ensure device is registered: {}", e))?;
-                
-                    println!("Device ensured: {:#?}", device);
-                
+                                
                     sender_clone.send(PlumeFrameMessage::InstallProgress(20, Some("Extracting package...".to_string()))).ok();
                     
                     let bundle = package.get_package_bundle()
@@ -501,7 +499,6 @@ impl PlumeFrame {
         });
 
     }
-
     
     fn bind_login_dialog_next_handler(
         &self,

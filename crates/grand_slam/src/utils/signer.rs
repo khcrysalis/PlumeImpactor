@@ -93,8 +93,6 @@ impl Signer {
                 }
             }
             
-            println!("Signing {}...", bundle.dir().to_string_lossy());
-
             UnifiedSigner::new(settings).sign_path_in_place(bundle.dir())?;
         }
 

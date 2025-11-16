@@ -169,6 +169,7 @@ impl PlumeFrameMessageHandler {
                 }
             }
             PlumeFrameMessage::InstallProgress(progress, message_opt) => {
+                println!("Progress: {} - {:?}", progress, message_opt);
                 let Some(selected_package) = &self.package_selected else {
                     return;
                 };

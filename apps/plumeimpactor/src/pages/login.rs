@@ -18,7 +18,7 @@ pub fn create_login_dialog(parent: &Window) -> LoginDialog {
         .build();
 
     let sizer = BoxSizer::builder(Orientation::Vertical).build();
-    sizer.add_spacer(12);
+    sizer.add_spacer(13);
 
     let email_row = BoxSizer::builder(Orientation::Horizontal).build();
     let email_label = StaticText::builder(&dialog)
@@ -42,10 +42,10 @@ pub fn create_login_dialog(parent: &Window) -> LoginDialog {
     let cancel_button = Button::builder(&dialog).with_label("Cancel").build();
     let next_button = Button::builder(&dialog).with_label("Next").build();
     button_sizer.add(&cancel_button, 1, SizerFlag::Expand | SizerFlag::All, 0);
-    button_sizer.add_spacer(12);
+    button_sizer.add_spacer(13);
     button_sizer.add(&next_button, 1, SizerFlag::Expand | SizerFlag::All, 0);
 
-    sizer.add_sizer(&button_sizer, 0, SizerFlag::AlignRight | SizerFlag::All, 12);
+    sizer.add_sizer(&button_sizer, 0, SizerFlag::AlignRight | SizerFlag::All, 13);
 
     dialog.set_sizer(sizer, true);
 
@@ -107,10 +107,10 @@ pub fn create_account_dialog(parent: &Window) -> AccountDialog {
         .build();
 
     let sizer = BoxSizer::builder(Orientation::Vertical).build();
-    sizer.add_spacer(12);
+    sizer.add_spacer(13);
 
     let label = StaticText::builder(&dialog).with_label("").build();
-    sizer.add(&label, 0, SizerFlag::Expand | SizerFlag::Left | SizerFlag::Right, 12);
+    sizer.add(&label, 0, SizerFlag::Expand | SizerFlag::Left | SizerFlag::Right, 13);
 
     let buttons = BoxSizer::builder(Orientation::Horizontal).build();
     

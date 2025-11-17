@@ -8,7 +8,7 @@ use uuid::Uuid;
 use zip::ZipArchive;
 
 use grand_slam::Bundle;
-use grand_slam::utils::PlistInfoTrait;
+use grand_slam::utils::{PlistInfoTrait, SignerSettings};
 use crate::Error;
 
 #[derive(Debug, Clone)]
@@ -98,6 +98,16 @@ impl PlistInfoTrait for Package {
 
     fn get_build_version(&self) -> Option<String> {
         get_plist_dict_value!(self, "CFBundleVersion")
+    }
+}
+
+impl Package {
+    pub fn load_into_signer_settings<'settings, 'slf: 'settings>(
+        &'slf self,
+        settings: &'settings mut SignerSettings,
+    ) -> Result<(), Error> {
+
+        Ok(())
     }
 }
 

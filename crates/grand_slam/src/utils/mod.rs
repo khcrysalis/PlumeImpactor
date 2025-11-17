@@ -11,30 +11,39 @@ pub use signer::Signer;
 pub use bundle::Bundle;
 pub use bundle::BundleType;
 
+#[derive(Clone, Debug)]
 pub struct SignerSettings {
-    pub should_embed_provisioning: bool,
     pub custom_name: Option<String>,
     pub custom_identifier: Option<String>,
-    pub custom_build_version: Option<String>,
-    pub support_minimum_os_version: Option<bool>,
-    pub support_file_sharing: Option<bool>,
-    pub support_pro_motion: Option<bool>,
-    pub support_ipad_fullscreen: Option<bool>,
-    pub remove_url_schemes: Option<bool>,
+    pub custom_version: Option<String>,
+    pub support_minimum_os_version: bool,
+    pub support_file_sharing: bool,
+    pub support_ipad_fullscreen: bool,
+    pub support_game_mode: bool,
+    pub support_pro_motion: bool,
+    pub should_embed_provisioning: bool,
+    pub should_embed_pairing: bool,
+    pub should_only_use_main_provisioning: bool,
+    pub remove_url_schemes: bool,
+    pub export_ipa: bool,
 }
 
 impl Default for SignerSettings {
     fn default() -> Self {
         Self {
-            should_embed_provisioning: true,
             custom_name: None,
             custom_identifier: None,
-            custom_build_version: None,
-            support_minimum_os_version: None,
-            support_file_sharing: None,
-            support_pro_motion: None,
-            support_ipad_fullscreen: None,
-            remove_url_schemes: None,
+            custom_version: None,
+            support_minimum_os_version: false,
+            support_file_sharing: false,
+            support_ipad_fullscreen: false,
+            support_game_mode: false,
+            support_pro_motion: false,
+            should_embed_provisioning: true,
+            should_embed_pairing: false,
+            should_only_use_main_provisioning: false,
+            remove_url_schemes: false,
+            export_ipa: false,
         }
     }
 }

@@ -45,24 +45,21 @@ impl PlumeFrame {
 
         let sizer = BoxSizer::builder(Orientation::Vertical).build();
 
-        let top_panel = Panel::builder(&frame).build();
         let top_row = BoxSizer::builder(Orientation::Horizontal).build();
 
-        let add_ipa_button = Button::builder(&top_panel).with_label("Import").build();
-        let device_picker = Choice::builder(&top_panel).build();
-        let apple_id_button = Button::builder(&top_panel).with_label("Settings").build();
+        let add_ipa_button = Button::builder(&frame).with_label("Import").build();
+        let device_picker = Choice::builder(&frame).build();
+        let apple_id_button = Button::builder(&frame).with_label("Settings").build();
 
         top_row.add(&add_ipa_button, 0, SizerFlag::All, 0);
-        top_row.add_spacer(12);
+        top_row.add_spacer(13);
         top_row.add(&device_picker, 1, SizerFlag::Expand | SizerFlag::All, 0);
-        top_row.add_spacer(12);
+        top_row.add_spacer(13);
         top_row.add(&apple_id_button, 0, SizerFlag::All, 0);
-
-        top_panel.set_sizer(top_row, true);
 
         let default_page = create_default_page(&frame);
         let install_page = create_install_page(&frame);
-        sizer.add(&top_panel, 0, SizerFlag::Expand | SizerFlag::All, 12);
+        sizer.add_sizer(&top_row, 0, SizerFlag::Expand | SizerFlag::All, 13);
         sizer.add(
             &default_page.panel,
             1,
@@ -272,7 +269,7 @@ impl PlumeFrame {
         
         let message_handler_for_install = message_handler.clone();
         self.install_page.set_install_handler({
-            let frame = self.frame.clone();
+            // let frame = self.frame.clone();
             let sender = sender.clone();
             move || {
             let binding = message_handler_for_install.borrow();
@@ -291,6 +288,9 @@ impl PlumeFrame {
                 sender.send(PlumeFrameMessage::Error("No Apple ID account available for installation.".to_string())).ok();
                 return;
             };
+            
+            let mut signer_settings = binding.signer_settings.clone();
+            binding.plume_frame.install_page.update_fields(&mut signer_settings);
 
             let package = selected_package.clone();
             let account = selected_account.clone();
@@ -348,16 +348,36 @@ impl PlumeFrame {
                     let bundle_identifier = bundle.get_bundle_identifier()
                         .ok_or("Failed to get bundle identifier from package.")?;
 
-                    let new_id = new_identifier(&bundle_identifier, team_id);
+                    if let Some(new_name) = signer_settings.custom_name.as_ref() {
+                        bundle.set_name(new_name).map_err(|e| format!("Failed to set new name: {}", e))?;
+                    }
 
-                    fn new_identifier(original: &str, team_id: &str) -> String {
-                        format!("{}.{}", original, team_id)
+                    if let Some(new_version) = signer_settings.custom_version.as_ref() {
+                        bundle.set_version(new_version).map_err(|e| format!("Failed to set new version: {}", e))?;
                     }
                     
-                    if let Some(old_identifier) = bundle.get_bundle_identifier() {
+                    if signer_settings.support_file_sharing {
+                        bundle.set_info_plist_key("UIFileSharingEnabled", true).map_err(|e| format!("Failed to set file sharing: {}", e))?;
+                        bundle.set_info_plist_key("UISupportsDocumentBrowser", true).map_err(|e| format!("Failed to set document opening: {}", e))?;
+                    }
+                    
+                    if signer_settings.support_ipad_fullscreen {
+                        bundle.set_info_plist_key("UIRequiresFullScreen", true).map_err(|e| format!("Failed to set iPad fullscreen: {}", e))?;
+                    }
+
+                    if signer_settings.support_game_mode {
+                        bundle.set_info_plist_key("GCSupportsGameMode", true).map_err(|e| format!("Failed to set game mode: {}", e))?;
+                    }
+
+                    if signer_settings.support_pro_motion {
+                        bundle.set_info_plist_key("CADisableMinimumFrameDurationOnPhone", true).map_err(|e| format!("Failed to set document opening: {}", e))?;
+                    }
+
+                    if !signer_settings.export_ipa && signer_settings.custom_identifier.is_none() {
+                        let new_id: String = format!("{bundle_identifier}.{team_id}");
                         for embedded_bundle in &bundles {
                             embedded_bundle.set_matching_identifier(
-                                &old_identifier,
+                                &bundle_identifier,
                                 &new_id,
                             ).map_err(|e| format!("Failed to set matching identifier: {}", e))?;
                         }
@@ -377,114 +397,123 @@ impl PlumeFrame {
                     
                     let mut provisionings: Vec<MobileProvision> = Vec::new();
                     
-                    // TODO: handle requests on seperate threads to speed this up
-                    for bundle in &bundles {
-                        if 
-                            bundle._type != BundleType::AppExtension &&
-                            bundle._type != BundleType::App 
-                           {
-                            continue;
-                        }
-
-                        let bundle_executable_name = bundle.get_executable()
-                            .ok_or("Failed to get executable from bundle.")?;
-                        
-                        let bundle_executable_path = bundle.dir().join(&bundle_executable_name);
-                        
-                        let macho = MachO::new(&bundle_executable_path)
-                            .map_err(|e| format!("Failed to read Mach-O binary: {}", e))?;
-                        
-                        let id = bundle.get_bundle_identifier()
-                            .ok_or("Failed to get bundle identifier from bundle.")?;
-                        
-                        println!("{}", id);
-
-                        session.qh_ensure_app_id(team_id, &bundle.get_name().unwrap_or_default(), &id)
-                            .await
-                            .map_err(|e| format!("Failed to ensure app ID: {}", e))?;
-                        
-                        let capabilities = session.v1_list_capabilities(team_id)
-                            .await
-                            .map_err(|e| format!("Failed to list capabilities: {}", e))?;
-                        
-                        let app_id_id = session.qh_get_app_id(team_id, &id)
-                            .await
-                            .map_err(|e| e.to_string())?
-                            .ok_or("Failed to get ensured app ID.")?;
-
-                        if let Some(caps) = macho.capabilities_for_entitlements(&capabilities.data) {
-                            session.v1_update_app_id(team_id, &id, caps)
-                                .await
-                                .map_err(|e| format!("Failed to enable capabilities: {}", e))?;
-                        }
-                        
-                        if let Some(app_groups) = macho.app_groups_for_entitlements() {
-                            for group in &app_groups {
-                                let group = format!("{group}.{team_id}");
-                                let group_id = session.qh_ensure_app_group(team_id, &group, &group)
-                                    .await
-                                    .map_err(|e| format!("Failed to ensure app group: {}", e))?;
-
-                                session.qh_assign_app_group(team_id, &app_id_id.app_id_id, &group_id.application_group)
-                                    .await
-                                    .map_err(|e| format!("Failed to add app group to app ID: {}", e))?;
+                    if !signer_settings.export_ipa {
+                        for sub_bundle in &bundles {
+                            if signer_settings.should_only_use_main_provisioning && sub_bundle.dir() != bundle.dir() {
+                                continue;
                             }
+                            
+                            if 
+                                sub_bundle._type != BundleType::AppExtension &&
+                                sub_bundle._type != BundleType::App 
+                            {
+                                continue;
+                            }
+
+                            let bundle_executable_name = sub_bundle.get_executable()
+                                .ok_or("Failed to get executable from bundle.")?;
+                            
+                            let bundle_executable_path = sub_bundle.dir().join(&bundle_executable_name);
+                            
+                            let macho = MachO::new(&bundle_executable_path)
+                                .map_err(|e| format!("Failed to read Mach-O binary: {}", e))?;
+                            
+                            let id = sub_bundle.get_bundle_identifier()
+                                .ok_or("Failed to get bundle identifier from bundle.")?;
+                            
+                            println!("{}", id);
+
+                            session.qh_ensure_app_id(team_id, &sub_bundle.get_name().unwrap_or_default(), &id)
+                                .await
+                                .map_err(|e| format!("Failed to ensure app ID: {}", e))?;
+                            
+                            let capabilities = session.v1_list_capabilities(team_id)
+                                .await
+                                .map_err(|e| format!("Failed to list capabilities: {}", e))?;
+                            
+                            let app_id_id = session.qh_get_app_id(team_id, &id)
+                                .await
+                                .map_err(|e| e.to_string())?
+                                .ok_or("Failed to get ensured app ID.")?;
+
+                            if let Some(caps) = macho.capabilities_for_entitlements(&capabilities.data) {
+                                session.v1_update_app_id(team_id, &id, caps)
+                                    .await
+                                    .map_err(|e| format!("Failed to enable capabilities: {}", e))?;
+                            }
+                            
+                            if let Some(app_groups) = macho.app_groups_for_entitlements() {
+                                for group in &app_groups {
+                                    let group = format!("{group}.{team_id}");
+                                    let group_id = session.qh_ensure_app_group(team_id, &group, &group)
+                                        .await
+                                        .map_err(|e| format!("Failed to ensure app group: {}", e))?;
+
+                                    session.qh_assign_app_group(team_id, &app_id_id.app_id_id, &group_id.application_group)
+                                        .await
+                                        .map_err(|e| format!("Failed to add app group to app ID: {}", e))?;
+                                }
+                            }
+
+                            let profiles = session.qh_get_profile(team_id, &app_id_id.app_id_id)
+                                .await
+                                .map_err(|e| format!("Failed to list profiles: {}", e))?;
+
+                            let profile_data = profiles.provisioning_profile.encoded_profile;
+                            
+                            let mobile_provision = MobileProvision::load_from_bytes(profile_data.as_ref())
+                                .map_err(|e| format!("Failed to load mobile provision: {}", e))?;
+                            
+                            provisionings.push(mobile_provision);
                         }
-
-                        let profiles = session.qh_get_profile(team_id, &app_id_id.app_id_id)
-                            .await
-                            .map_err(|e| format!("Failed to list profiles: {}", e))?;
-
-                        let profile_data = profiles.provisioning_profile.encoded_profile;
-                        
-                        let mobile_provision = MobileProvision::load_from_bytes(profile_data.as_ref())
-                            .map_err(|e| format!("Failed to load mobile provision: {}", e))?;
-                        
-                        provisionings.push(mobile_provision);
                     }
 
                     sender_clone.send(PlumeFrameMessage::InstallProgress(50, Some(format!("Signing {}...", bundle.get_name().unwrap_or_default())))).ok();
 
-                    let certificate_paths = vec![
-                        identity.get_certificate_file_path().to_path_buf(),
-                        identity.get_private_key_file_path().to_path_buf(),
-                    ];
+                    let mut certificate: Option<Certificate> = None;
                     
-                    let certificate = Certificate::new(Some(certificate_paths))
-                        .map_err(|e| format!("Failed to create Certificate: {}", e))?;
-                    
-                    let signer_settings = SignerSettings {
-                        ..Default::default()
-                    };
+                    if !signer_settings.export_ipa {
+                        let certificate_paths = vec![
+                            identity.get_certificate_file_path().to_path_buf(),
+                            identity.get_private_key_file_path().to_path_buf(),
+                        ];
+
+                        certificate = Some(Certificate::new(Some(certificate_paths))
+                            .map_err(|e| format!("Failed to create Certificate: {}", e))?);
+                    }
                     
                     let signer = Signer::new(
-                        Some(certificate),
-                        signer_settings,
+                        certificate,
+                        signer_settings.clone(),
                         provisionings,
                     );
 
                     signer.sign_bundle(&bundle)
                         .map_err(|e| format!("Failed to sign bundle: {}", e))?;
-
-                    let provider = usbmuxd_device.to_provider(UsbmuxdAddr::from_env_var().unwrap(), "baller");
-
-                    let bundle_name = bundle.get_name().unwrap_or_default();
-                    let callback = {
-                        let sender_clone = sender_clone.clone();
-                        move |(progress, _): (u64, ())| {
-                            let sender = sender_clone.clone();
-                            let bundle_name = bundle_name.clone();
-                            async move {
-                                sender.send(PlumeFrameMessage::InstallProgress(progress as i32, Some(format!("Installing {}... {}%", bundle_name, progress)))).ok();
+                    
+                    if !signer_settings.export_ipa {
+                        let provider = usbmuxd_device.to_provider(UsbmuxdAddr::from_env_var().unwrap(), "baller");
+                        
+                        let bundle_name = bundle.get_name().unwrap_or_default();
+                        let callback = {
+                            let sender_clone = sender_clone.clone();
+                            move |(progress, _): (u64, ())| {
+                                let sender = sender_clone.clone();
+                                let bundle_name = bundle_name.clone();
+                                async move {
+                                    sender.send(PlumeFrameMessage::InstallProgress(progress as i32, Some(format!("Installing {}... {}%", bundle_name, progress)))).ok();
+                                }
                             }
-                        }
-                    };
-                    
-                    let state = ();
-                    
-                    installation::install_package_with_callback(&provider, bundle.dir(), None, callback, state)
-                        .await
-                        .map_err(|e| format!("Failed to install package: {}", e))?;
+                        };
+                        
+                        let state = ();
+                        
+                        installation::install_package_with_callback(&provider, bundle.dir(), None, callback, state)
+                            .await
+                            .map_err(|e| format!("Failed to install package: {}", e))?;
+                    } else {
+                        todo!("Export IPA functionality");
+                    }
 
                     Ok::<_, String>(())
                 });

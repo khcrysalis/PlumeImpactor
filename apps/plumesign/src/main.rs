@@ -73,7 +73,7 @@ async fn main() {
             let signer_settings = SignerSettings {
                 custom_name: args.name.clone(),
                 custom_identifier: args.bundle_identifier.clone(),
-                custom_build_version: args.version.clone(),
+                custom_version: args.version.clone(),
                 ..Default::default()
             };
 

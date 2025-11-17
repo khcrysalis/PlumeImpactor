@@ -36,25 +36,6 @@ impl Signer {
     pub fn sign_bundle(&self, bundle: &Bundle) -> Result<(), Error> {
         let bundles = bundle.collect_bundles_sorted()?;
         
-        if let Some(new_name) = self.settings.custom_name.as_ref() {
-            bundle.set_name(new_name)?;
-        }
-        
-        if let Some(new_version) = self.settings.custom_build_version.as_ref() {
-            bundle.set_version(new_version)?;
-        }
-        
-        if let Some(new_identifier) = self.settings.custom_identifier.as_ref() {
-            if let Some(old_identifier) = bundle.get_bundle_identifier() {
-                for embedded_bundle in &bundles {
-                    embedded_bundle.set_matching_identifier(
-                        &old_identifier,
-                        &new_identifier,
-                    )?;
-                }
-            }
-        }
-
         for bundle in &bundles {
             let mut settings = self.build_base_settings()?;
 

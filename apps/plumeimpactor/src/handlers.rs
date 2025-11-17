@@ -5,7 +5,7 @@ use tokio::sync::mpsc::error::TryRecvError;
 use std::sync::mpsc as std_mpsc;
 
 use grand_slam::auth::Account;
-use grand_slam::utils::PlistInfoTrait;
+use grand_slam::utils::{PlistInfoTrait, SignerSettings};
 
 use crate::frame::PlumeFrame;
 use crate::keychain::AccountCredentials;
@@ -35,6 +35,8 @@ pub struct PlumeFrameMessageHandler {
     pub package_selected: Option<Package>,
     // --- account ---
     pub account_credentials: Option<Account>,
+    // --- signer settings ---
+    pub signer_settings: SignerSettings,
 }
 
 impl PlumeFrameMessageHandler {
@@ -42,6 +44,7 @@ impl PlumeFrameMessageHandler {
         receiver: mpsc::UnboundedReceiver<PlumeFrameMessage>,
         plume_frame: PlumeFrame,
     ) -> Self {
+        let signer_settings = SignerSettings::default();
         Self {
             receiver,
             plume_frame,
@@ -50,6 +53,7 @@ impl PlumeFrameMessageHandler {
             package_selected: None,
             account_credentials: None,
             installation_progress_dialog: None,
+            signer_settings,
         }
     }
 
@@ -92,6 +96,8 @@ impl PlumeFrameMessageHandler {
                         self.usbmuxd_picker_reconcile_selection();
                     }
                 }
+                
+                self.plume_frame.install_page.install_button.enable(true);
             }
             PlumeFrameMessage::DeviceDisconnected(device_id) => {
                 if let Some(index) = self
@@ -103,35 +109,34 @@ impl PlumeFrameMessageHandler {
                     self.usbmuxd_picker_rebuild_contents();
                     self.usbmuxd_picker_reconcile_selection();
                 }
+                
+                if self.usbmuxd_device_list.is_empty() {
+                    self.plume_frame.install_page.install_button.enable(false);
+                }
             }
             PlumeFrameMessage::PackageSelected(package) => {
                 if self.package_selected.is_some() {
                     return;
                 }
 
-                let package_name = package
-                    .get_name()
-                    .unwrap_or_else(|| "Unknown".to_string());
-                let package_id = package
-                    .get_bundle_identifier()
-                    .unwrap_or_else(|| "Unknown".to_string());
-                let package_version = package
-                    .get_version()
-                    .unwrap_or_else(|| "Unknown".to_string());
-                
+                package.load_into_signer_settings(&mut self.signer_settings).ok();
+
                 self.package_selected = Some(package);
-                self.plume_frame
-                    .install_page
-                    .set_top_text(format!("{} - {} ({})", package_name, package_id, package_version).as_str());
+                self.plume_frame.install_page.set_settings(&self.signer_settings, Some(self.package_selected.as_ref().unwrap()));
                 self.plume_frame.default_page.panel.hide();
                 self.plume_frame.install_page.panel.show(true);
                 self.plume_frame.frame.layout();
+                
+                self.plume_frame.add_ipa_button.enable(false);
             }
             PlumeFrameMessage::PackageDeselected => {
                 self.package_selected = None;
                 self.plume_frame.install_page.panel.hide();
                 self.plume_frame.default_page.panel.show(true);
                 self.plume_frame.frame.layout();
+                self.signer_settings = SignerSettings::default();
+                self.plume_frame.install_page.set_settings(&self.signer_settings, None);
+                self.plume_frame.add_ipa_button.enable(true);
             }
             PlumeFrameMessage::AccountLogin(account) => {
                 let (first, last) = account.get_name();

@@ -356,6 +356,10 @@ impl PlumeFrame {
                         bundle.set_version(new_version).map_err(|e| format!("Failed to set new version: {}", e))?;
                     }
                     
+                    if signer_settings.support_minimum_os_version {
+                        bundle.set_info_plist_key("MinimumOSVersion", "7.0").map_err(|e| format!("Failed to set minimum OS version: {}", e))?;
+                    }
+                    
                     if signer_settings.support_file_sharing {
                         bundle.set_info_plist_key("UIFileSharingEnabled", true).map_err(|e| format!("Failed to set file sharing: {}", e))?;
                         bundle.set_info_plist_key("UISupportsDocumentBrowser", true).map_err(|e| format!("Failed to set document opening: {}", e))?;

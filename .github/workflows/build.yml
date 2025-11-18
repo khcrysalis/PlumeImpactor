@@ -46,6 +46,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install libgtk-3-dev libpng-dev libjpeg-dev libgl1-mesa-dev libglu1-mesa-dev libxkbcommon-dev libexpat1-dev libtiff-dev
 
+      - name: Certificates
+        uses: apple-actions/import-codesign-certs@v5
+        if: runner.os == 'macOS'
+        with:
+          p12-file-base64: ${{ secrets.DEV_ID_P12_BASE64 }}
+          p12-password: ${{ secrets.DEV_ID_P12_PASSWORD }}
+          
       - name: Setup Windows dependencies
         if: runner.os == 'Windows'
         run: choco install strawberryperl make --no-progress
@@ -65,27 +72,33 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           cargo bundle --bin plumeimpactor --package plumeimpactor --release --format appimage
+          mkdir build
+          cp -R target/release/bundle/appimage/plumeimpactor.AppImage build/
 
       - name: Build & Bundle (macOS)
         if: runner.os == 'macOS'
         run: |
           cargo bundle --bin plumeimpactor --package plumeimpactor --release --format osx
           mkdir build
-          cp -R target/release/bundle/*/*.app build/
-          ln -s /Applications build/Applications
-          hdiutil create -volname plumeimpactor -srcfolder build -ov -format UDZO target/release/bundle/osx/plumeimpactor.dmg
+          cp -R target/release/bundle/osx/plumeimpactor.app build/dmg
+          codesign --deep --force --options runtime --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/plumeimpactor.app
+          ln -s /Applications build/dmg/Applications
+          hdiutil create -volname plumeimpactor -srcfolder build/dmg -ov -format UDZO build/PlumeImpactor.dmg
+          xcrun notarytool submit build/PlumeImpactor.dmg --apple-id "${{ secrets.APPLE_ID_EMAIL }}" --password "${{ secrets.APPLE_ID_PASSWORD }}" --team-id "${{ secrets.APPLE_ID_TEAM }}" --wait
+          xcrun stapler staple build/PlumeImpactor.dmg
 
       - name: Build & Bundle (Windows)
         if: runner.os == 'Windows'
         run: |
           cargo build --bin plumeimpactor --release
+          mkdir build
+          cp target/release/plumeimpactor.exe build/
 
       - name: Upload Bundles
         uses: actions/upload-artifact@v4
         with:
           name: plumeimpactor-${{ matrix.platform }}
           path: |
-            target/release/bundle/appimage/*.AppImage
-            target/release/bundle/osx/*.dmg
-            target/release/bundle/msi/*.msi
-            target/release/*.exe
+            build/plumeimpactor.AppImage
+            build/PlumeImpactor.dmg
+            build/plumeimpactor.exe

@@ -1,6 +1,4 @@
-use embed_manifest::manifest::{ActiveCodePage, Setting, SupportedOS::*};
-use embed_manifest::{embed_manifest, new_manifest};
-
+#[cfg(windows)]
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     let target = std::env::var("TARGET").unwrap_or_default();
@@ -11,7 +9,14 @@ fn main() {
     }
 }
 
+#[cfg(not(windows))]
+fn main() {}
+
+#[cfg(windows)]
 fn embed_windows_manifest(name: &str) {
+    use embed_manifest::manifest::{ActiveCodePage, Setting, SupportedOS::*};
+    use embed_manifest::{embed_manifest, new_manifest};
+
     let manifest = new_manifest(name)
         .supported_os(Windows7..=Windows10)
         .active_code_page(ActiveCodePage::Utf8)

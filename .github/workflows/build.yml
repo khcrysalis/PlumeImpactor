@@ -4,8 +4,10 @@ on:
     branches:
       - main
   workflow_dispatch:
-  release:
-    types: [published]
+
+env:
+  BINARY_NAME: plumeimpactor
+  BUNDLE_NAME: Impactor
 
 jobs:
   build-linux:
@@ -21,15 +23,15 @@ jobs:
             target
           key: linux-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: linux-cargo-
-            
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
-        
+
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
           sudo apt-get install libgtk-3-dev libpng-dev libjpeg-dev libgl1-mesa-dev libglu1-mesa-dev libxkbcommon-dev libexpat1-dev libtiff-dev
-          
+
       - name: Build Dependencies 
         run: |
           cargo install patch-crate
@@ -37,114 +39,16 @@ jobs:
           cargo patch-crate --force
           cargo install cargo-bundle
           mkdir -p build/out
-          
+
       - name: Build & Bundle (Linux)
         run: |
-          cargo bundle --bin plumeimpactor --package plumeimpactor --release --format appimage
+          cargo bundle --bin ${{ env.BINARY_NAME }} --package ${{ env.BINARY_NAME }} --release --format appimage
           cp -R target/release/bundle/appimage/*.AppImage build/out/
-          
-      - name: Upload Bundles
-        uses: actions/upload-artifact@v4
-        with:
-          name: plumeimpactor-linux
-          path: build/out/*
 
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: macos-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: macos-cargo-
-            
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin
-          
-      - name: Setup macOS Certificates
-        uses: apple-actions/import-codesign-certs@v5
-        with:
-          p12-file-base64: ${{ secrets.DEV_ID_P12_BASE64 }}
-          p12-password: ${{ secrets.DEV_ID_P12_PASSWORD }}
-          
-      - name: Build Dependencies 
-        run: |
-          cargo install patch-crate
-          cargo fetch --locked || true
-          cargo patch-crate --force
-          cargo install cargo-bundle
-          mkdir -p build/out
-          mkdir -p build/dmg
-          
-      - name: Build & Bundle (macOS)
-        run: |
-          cargo bundle --bin plumeimpactor --package plumeimpactor --release --format osx
-          cp -R target/release/bundle/osx/plumeimpactor.app build/dmg/plumeimpactor.app
-          codesign --deep --force --options runtime --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/plumeimpactor.app
-          ln -s /Applications build/dmg/Applications
-          hdiutil create -volname plumeimpactor -srcfolder build/dmg -ov -format UDZO build/out/PlumeImpactor.dmg
-          xcrun notarytool submit build/out/PlumeImpactor.dmg --apple-id "${{ secrets.APPLE_ID_EMAIL }}" --password "${{ secrets.APPLE_ID_PASSWORD }}" --team-id "${{ secrets.APPLE_ID_TEAM }}" --wait
-          xcrun stapler staple build/out/PlumeImpactor.dmg
-          
       - name: Upload Bundles
         uses: actions/upload-artifact@v4
         with:
-          name: plumeimpactor-macos
-          path: build/out/*
-
-  build-macos-intel:
-    runs-on: macos-15-intel
-    steps:
-      - uses: actions/checkout@v4
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: macos-intel-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: macos-intel-cargo-
-            
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        
-      - name: Setup macOS Certificates
-        uses: apple-actions/import-codesign-certs@v5
-        with:
-          p12-file-base64: ${{ secrets.DEV_ID_P12_BASE64 }}
-          p12-password: ${{ secrets.DEV_ID_P12_PASSWORD }}
-          
-      - name: Build Dependencies 
-        run: |
-          cargo install patch-crate
-          cargo fetch --locked || true
-          cargo patch-crate --force
-          cargo install cargo-bundle
-          mkdir -p build/out
-          mkdir -p build/dmg
-          
-      - name: Build & Bundle (macOS Intel)
-        run: |
-          cargo bundle --bin plumeimpactor --package plumeimpactor --release --format osx
-          cp -R target/release/bundle/osx/plumeimpactor.app build/dmg/plumeimpactor.app
-          codesign --deep --force --options runtime --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/plumeimpactor.app
-          ln -s /Applications build/dmg/Applications
-          hdiutil create -volname plumeimpactor -srcfolder build/dmg -ov -format UDZO build/out/PlumeImpactor.dmg
-          xcrun notarytool submit build/out/PlumeImpactor.dmg --apple-id "${{ secrets.APPLE_ID_EMAIL }}" --password "${{ secrets.APPLE_ID_PASSWORD }}" --team-id "${{ secrets.APPLE_ID_TEAM }}" --wait
-          xcrun stapler staple build/out/PlumeImpactor.dmg
-          
-      - name: Upload Bundles
-        uses: actions/upload-artifact@v4
-        with:
-          name: plumeimpactor-macos-intel
+          name: ${{ env.BINARY_NAME }}-linux
           path: build/out/*
 
   build-windows:
@@ -160,31 +64,160 @@ jobs:
             target
           key: windows-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: windows-cargo-
-            
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
-        
+
       - name: Setup Windows dependencies
         run: choco install strawberryperl make --no-progress
-        
+
       - name: Setup Windows MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
-        
+
       - name: Build Dependencies 
         run: |
           cargo install patch-crate
           cargo fetch --locked || true
           cargo patch-crate --force
-          cargo install cargo-bundle
           mkdir -p build/out
-          
+
       - name: Build & Bundle (Windows)
         run: |
-          cargo build --bin plumeimpactor --release
-          cp target/release/plumeimpactor.exe build/out
-          
+          cargo build --bin ${{ env.BINARY_NAME }} --release
+          cp target/release/${{ env.BINARY_NAME }}.exe build/out
+
       - name: Upload Bundles
         uses: actions/upload-artifact@v4
         with:
-          name: plumeimpactor-windows
+          name: ${{ env.BINARY_NAME }}-windows
           path: build/out/*
+
+  build-macos-arm:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: macos-arm-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: macos-arm-cargo-
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Build Dependencies 
+        run: |
+          cargo install patch-crate
+          cargo fetch --locked || true
+          cargo patch-crate --force
+          mkdir -p build/out
+
+      - name: Build (macOS ARM)
+        run: |
+          cargo build --bin ${{ env.BINARY_NAME }} --release
+          strip target/release/${{ env.BINARY_NAME }}
+          cp target/release/${{ env.BINARY_NAME }} build/out/${{ env.BINARY_NAME }}-arm
+
+      - name: Upload ARM Slice
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BINARY_NAME }}-macos-slice-arm
+          path: build/out/${{ env.BINARY_NAME }}-arm
+
+  build-macos-intel:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: macos-intel-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: macos-intel-cargo-
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Dependencies 
+        run: |
+          cargo install patch-crate
+          cargo fetch --locked || true
+          cargo patch-crate --force
+          mkdir -p build/out
+
+      - name: Build (macOS Intel)
+        run: |
+          cargo build --bin ${{ env.BINARY_NAME }} --release
+          strip target/release/${{ env.BINARY_NAME }}
+          cp target/release/${{ env.BINARY_NAME }} build/out/${{ env.BINARY_NAME }}-intel
+
+      - name: Upload Intel Slice
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BINARY_NAME }}-macos-slice-intel
+          path: build/out/${{ env.BINARY_NAME }}-intel
+
+  build-macos-universal:
+    runs-on: macos-latest
+    needs: [build-macos-arm, build-macos-intel]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get ARM Slice
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.BINARY_NAME }}-macos-slice-arm
+          path: build/slices
+
+      - name: Get Intel Slice
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.BINARY_NAME }}-macos-slice-intel
+          path: build/slices
+
+      - name: Setup Certificates
+        uses: apple-actions/import-codesign-certs@v5
+        with:
+          p12-file-base64: ${{ secrets.DEV_ID_P12_BASE64 }}
+          p12-password: ${{ secrets.DEV_ID_P12_PASSWORD }}
+
+      - name: Create Universal Binary
+        run: |
+          mkdir -p build/universal
+          lipo -create -output build/universal/${{ env.BINARY_NAME }} build/slices/${{ env.BINARY_NAME }}-arm build/slices/${{ env.BINARY_NAME }}-intel
+
+      - name: Bundle
+        run: |
+          cp -R package/macos/${{ env.BUNDLE_NAME }}.app build/dmg/${{ env.BUNDLE_NAME }}.app
+          mv build/universal/${{ env.BINARY_NAME }} build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/MacOS/${{ env.BINARY_NAME }}
+
+      - name: Codesign
+        run: |
+          codesign --deep --force --options runtime \ 
+            --entitlements package/macos/entitlements.plist \
+            --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/${{ env.BUNDLE_NAME }}.app
+
+      - name: Create DMG
+        run: |
+          ln -s /Applications build/dmg/Applications
+          hdiutil create -volname ${{ env.BUNDLE_NAME }} -srcfolder build/dmg -ov -format UDZO build/out/${{ env.BUNDLE_NAME }}.dmg
+
+      - name: Notarize DMG
+        run: |
+          xcrun notarytool submit build/out/${{ env.BUNDLE_NAME }}.dmg --apple-id "${{ secrets.APPLE_ID_EMAIL }}" --password "${{ secrets.APPLE_ID_PASSWORD }}" --team-id "${{ secrets.APPLE_ID_TEAM }}" --wait
+          xcrun stapler staple build/out/${{ env.BUNDLE_NAME }}.dmg
+
+      - name: Upload Universal DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BINARY_NAME }}-macos-universal
+          path: build/out/${{ env.BUNDLE_NAME }}.dmg

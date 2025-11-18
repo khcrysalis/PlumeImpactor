@@ -35,5 +35,5 @@ rustls = { version = "0.23.32", features = ["ring"] }
 
 keyring = { version = "3.6.3", default-features = false, features = ["windows-native", "apple-native", "linux-native"] }
 
-[build-dependencies]
+[target.'cfg(windows)'.build-dependencies]
 embed-manifest = "1.4"

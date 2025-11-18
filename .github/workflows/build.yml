@@ -80,7 +80,7 @@ jobs:
         run: |
           cargo bundle --bin plumeimpactor --package plumeimpactor --release --format osx
           cp -R target/release/bundle/osx/plumeimpactor.app build/dmg
-          codesign --deep --force --options runtime --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/plumeimpactor.app
+          codesign --deep --force --options runtime --sign "Developer ID Application: Lakhan Lothiyi (566RT33SA2)" build/dmg/plumeimpactor.app
           ln -s /Applications build/dmg/Applications
           hdiutil create -volname plumeimpactor -srcfolder build/dmg -ov -format UDZO build/out/PlumeImpactor.dmg
           xcrun notarytool submit build/out/PlumeImpactor.dmg --apple-id "${{ secrets.APPLE_ID_EMAIL }}" --password "${{ secrets.APPLE_ID_PASSWORD }}" --team-id "${{ secrets.APPLE_ID_TEAM }}" --wait

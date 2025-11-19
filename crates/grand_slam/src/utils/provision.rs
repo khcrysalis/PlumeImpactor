@@ -96,7 +96,8 @@ impl MobileProvision {
             .get("com.apple.developer.team-identifier")
             .and_then(Value::as_string)
             .map(|s| s.to_owned())
-            .or(Some("AAAAA11111".to_string()));
+            .or(Some("AAAAA11111".to_string())); 
+        // TODO: ^^ not hardcode livecontainers placeholder team identifier
 
         if let (Some(new_id), Some(old_id)) = (new_team_id.as_ref(), old_team_id.as_ref()) {
             if let Some(Value::Array(groups)) = self.entitlements.get_mut("keychain-access-groups") {

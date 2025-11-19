@@ -392,12 +392,17 @@ impl PlumeFrame {
                         bundle.set_info_plist_key("CADisableMinimumFrameDurationOnPhone", true).map_err(|e| format!("Failed to set document opening: {}", e))?;
                     }
 
-                    if !signer_settings.export_ipa && signer_settings.custom_identifier.is_none() {
-                        let new_id: String = format!("{bundle_identifier}.{team_id}");
+                    if !signer_settings.export_ipa {
+                        if signer_settings.custom_identifier.is_none() {
+                            signer_settings.custom_identifier = Some(format!("{bundle_identifier}.{team_id}"));
+                        }
+                    }
+
+                    if let Some(new_identifier) = signer_settings.custom_identifier.as_ref() {
                         for embedded_bundle in &bundles {
                             embedded_bundle.set_matching_identifier(
                                 &bundle_identifier,
-                                &new_id,
+                                &new_identifier,
                             ).map_err(|e| format!("Failed to set matching identifier: {}", e))?;
                         }
                     }

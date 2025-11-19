@@ -15,10 +15,11 @@ pub struct CertificateIdentity {
 }
 
 impl CertificateIdentity {
+    // Use for cli context or if you actually store pems? why would you do that though
     pub async fn new_with_paths(paths: Option<Vec<PathBuf>>) -> Result<Self, Error> {
         let mut cert = Self { 
-            cert: None, 
-            key: None 
+            cert: None,
+            key: None
         };
 
         if let Some(paths) = paths {
@@ -41,11 +42,16 @@ impl CertificateIdentity {
 
         let key_path = Self::key_dir(config_path, &team_id)?.join("key.pem");
 
+        // To same some unnecessary requests, we're going to list our certificates first here
+        // then pass them into the necessary functions that need it, if the functions absolutely
+        // need to request certificates (after submitting a CSR, for example), they can do so
         let certs = session
             .qh_list_certs(&team_id)
             .await?
             .certificates;
 
+        // Only the key will be written to disk, certificate can just be gotten via the request
+        // request we've made, by trying to match our public key with the requests public key
         let key_pair: [Vec<u8>; 2] = if key_path.exists() {
             let key_string = fs::read_to_string(&key_path)?;
             let priv_key = RsaPrivateKey::from_pkcs8_pem(&key_string)?;
@@ -84,6 +90,7 @@ impl CertificateIdentity {
         Ok(cert)
     }
 
+    // <config_path>/keys/<team_id>
     fn key_dir(path: PathBuf, team_id: &String) -> Result<PathBuf, Error> {
         let dir = path.join("keys").join(team_id);
 
@@ -92,16 +99,20 @@ impl CertificateIdentity {
         Ok(dir)
     }
 
+    // applecodesign-rs needs our contents as strings to sign
     fn resolve_certificate_from_contents(&mut self, contents: Vec<u8>) -> Result<(), Error> {
          for pem in pem::parse_many(contents).map_err(Error::Pem)? {
             match pem.tag() {
                 "CERTIFICATE" => {
+                    println!("CERTIFICATE loaded!"); // TODO: REMOVE SOME DEBUG STATEMENTS IF THIS WORKS WONDERFULY
                     self.cert = Some(CapturedX509Certificate::from_der(pem.contents())?);
                 }
                 "PRIVATE KEY" => {
+                    println!("PRIVATE KEY loaded!"); // TODO: REMOVE SOME DEBUG STATEMENTS IF THIS WORKS WONDERFULY
                     self.key = Some(Box::new(InMemoryPrivateKey::from_pkcs8_der(pem.contents())?));
                 }
                 "RSA PRIVATE KEY" => {
+                    println!("RSA PRIVATE KEY loaded!"); // TODO: REMOVE SOME DEBUG STATEMENTS IF THIS WORKS WONDERFULY
                     self.key = Some(Box::new(InMemoryPrivateKey::from_pkcs1_der(pem.contents())?));
                 }
                 tag => println!("(unhandled PEM tag {}; ignoring)", tag),
@@ -178,6 +189,12 @@ impl CertificateIdentity {
             .map(|c| c.serial_number.clone())
             .collect::<Vec<_>>();
 
+        // When we submit a CSR theres a high chance of it failing, at least
+        // on free developer accounts, we put it in a loop so whenever it does
+        // fail, we also look through all of our existing certificates through
+        // the api until we have a success on a single revokage, then we can
+        // successfully submit our csr, but if we just cannot at all, return 
+        // an error
         let cert_id = loop {
             match session
                 .qh_submit_cert_csr(
@@ -187,6 +204,7 @@ impl CertificateIdentity {
                 ).await {
                     Ok(id) => break id,
                     Err(e) => {
+                        // 7460 is for too many certificates (I think)
                         if matches!(&e, Error::DeveloperSession(code, _) if *code == 7460) {
                             // Try to revoke certificates from the candidate list
                             let mut revoked_any = false;
@@ -214,6 +232,8 @@ impl CertificateIdentity {
                 }
         }.cert_request;
 
+        // We request again, and hope this has our new certificate 
+        // ready.... if not then woops... thats too bad isnt it
         let certs = session
             .qh_list_certs(&team_id)
             .await?
@@ -221,6 +241,6 @@ impl CertificateIdentity {
             .into_iter()
             .find(|c| c.certificate_id == cert_id.certificate_id);
 
-        Ok((certs.ok_or(Error::Certificate("Failed to find newly created certificate".into()))?, priv_key))
+        Ok((certs.ok_or(Error::CertificatePemMissing)?, priv_key))
     }
 }

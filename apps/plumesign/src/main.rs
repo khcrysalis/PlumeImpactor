@@ -4,7 +4,8 @@ use std::process::exit;
 use clap::Parser;
 
 use clap::{Args, Subcommand};
-use grand_slam::utils::Certificate;
+use grand_slam::Bundle;
+use grand_slam::utils::{CertificateIdentity, PlistInfoTrait};
 use grand_slam::utils::MobileProvision;
 use grand_slam::utils::Signer;
 use grand_slam::utils::SignerSettings;
@@ -57,7 +58,7 @@ async fn main() {
                 exit(1);
             }
             
-            let signing_key = Certificate::new(args.pem_files.clone().into()).unwrap_or_else(|e| {
+            let signing_key = CertificateIdentity::new_with_paths(args.pem_files.clone().into()).await.unwrap_or_else(|e| {
                 eprintln!("--x failed to create Certificate: {e}");
                 exit(1);
             });
@@ -76,6 +77,44 @@ async fn main() {
                 custom_version: args.version.clone(),
                 ..Default::default()
             };
+
+            let bundle = Bundle::new(args.bundle.clone()).unwrap_or_else(|e| {
+                eprintln!("--x failed to load bundle: {e}");
+                exit(1);
+            });
+
+            if let Some(new_name) = signer_settings.custom_name.as_ref() {
+                if let Err(e) = bundle.set_name(new_name) {
+                    eprintln!("--x Failed to set new name: {}", e);
+                    exit(1);
+                }
+            }
+
+            if let Some(new_version) = signer_settings.custom_version.as_ref() {
+                if let Err(e) = bundle.set_version(new_version) {
+                    eprintln!("--x Failed to set new version: {}", e);
+                    exit(1);
+                }
+            }
+
+            if let Some(new_identifier) = &signer_settings.custom_identifier {
+                let original_identifier = bundle.get_bundle_identifier().unwrap();
+
+                match bundle.collect_bundles_sorted() {
+                    Ok(bundles) => {
+                        for b in bundles {
+                            if let Err(e) = b.set_matching_identifier(&original_identifier, new_identifier) {
+                                eprintln!("--x Failed to set new identifier: {}", e);
+                                exit(1);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("--x Failed to collect bundles: {}", e);
+                        exit(1);
+                    }
+                }
+            }
 
             let signer = Signer::new(Some(signing_key), signer_settings, provisioning_files);
 

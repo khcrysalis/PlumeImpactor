@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::{ptr, thread};
 
-use grand_slam::certificate::CertificateIdentity;
-use grand_slam::{AnisetteConfiguration, BundleType, Certificate, MachO, MobileProvision, Signer};
+use grand_slam::CertificateIdentity;
+use grand_slam::{AnisetteConfiguration, BundleType, MachO, MobileProvision, Signer};
 use grand_slam::auth::Account;
 use grand_slam::developer::DeveloperSession;
-use grand_slam::utils::PlistInfoTrait;
+use grand_slam::utils::{PlistInfoTrait};
 use idevice::utils::installation;
 use wxdragon::prelude::*;
 
@@ -16,12 +16,14 @@ use idevice::usbmuxd::{UsbmuxdAddr, UsbmuxdConnection, UsbmuxdListenEvent};
 use tokio::runtime::Builder;
 use tokio::sync::mpsc;
 
-use crate::{APP_NAME, get_data_path};
+use crate::get_data_path;
 use crate::handlers::{PlumeFrameMessage, PlumeFrameMessageHandler};
 use crate::keychain::AccountCredentials;
 use crate::pages::login::{AccountDialog, LoginDialog};
 use crate::pages::{DefaultPage, InstallPage, create_account_dialog, create_default_page, create_install_page, create_login_dialog, WINDOW_SIZE};
 use crate::utils::{Device, Package};
+
+pub const APP_NAME: &str = concat!(env!("CARGO_PKG_NAME"), " – Version ", env!("CARGO_PKG_VERSION"));
 
 pub struct PlumeFrame {
     pub frame: Frame,
@@ -329,7 +331,20 @@ impl PlumeFrame {
                     let team_id = &teams.get(0)
                         .ok_or("No teams available for the Apple ID account.")?
                         .team_id;
-                    
+
+                    let cert_identity: CertificateIdentity = if signer_settings.export_ipa {
+                        CertificateIdentity { cert: None, key: None }
+                    } else {
+                        let cert_identity = CertificateIdentity::new_with_session(
+                            &session,
+                            get_data_path(),
+                            None,
+                            team_id,
+                        ).await.map_err(|e| e.to_string())?;
+
+                        cert_identity
+                    };
+
                     session.qh_ensure_device(
                         team_id,
                         &device.name,
@@ -388,16 +403,6 @@ impl PlumeFrame {
                     }
                     
                     sender_clone.send(PlumeFrameMessage::InstallProgress(30, Some(format!("Registering {}...", bundle.get_name().unwrap_or_default())))).ok();
-                    
-                    let identity = CertificateIdentity::new(
-                        &get_data_path(),
-                        &session,
-                        "PLUME".to_string(),
-                        "AltStore".to_string(),
-                        team_id
-                    )
-                    .await
-                    .map_err(|e| format!("Failed to create certificate identity: {}", e))?;
                     
                     let mut provisionings: Vec<MobileProvision> = Vec::new();
                     
@@ -473,21 +478,9 @@ impl PlumeFrame {
                     }
 
                     sender_clone.send(PlumeFrameMessage::InstallProgress(50, Some(format!("Signing {}...", bundle.get_name().unwrap_or_default())))).ok();
-
-                    let mut certificate: Option<Certificate> = None;
-                    
-                    if !signer_settings.export_ipa {
-                        let certificate_paths = vec![
-                            identity.get_certificate_file_path().to_path_buf(),
-                            identity.get_private_key_file_path().to_path_buf(),
-                        ];
-
-                        certificate = Some(Certificate::new(Some(certificate_paths))
-                            .map_err(|e| format!("Failed to create Certificate: {}", e))?);
-                    }
                     
                     let signer = Signer::new(
-                        certificate,
+                        Some(cert_identity),
                         signer_settings.clone(),
                         provisionings,
                     );

@@ -68,7 +68,7 @@ pub struct CsrResponse {
 }
 
 #[allow(dead_code)]
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Cert {
     pub name: String,
@@ -112,7 +112,7 @@ pub struct Csr {
 }
 
 #[allow(dead_code)]
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CertType {
     certificate_type_display_id: String,

@@ -5,19 +5,19 @@ use apple_codesign::{SigningSettings, UnifiedSigner};
 
 use crate::Error;
 
-use super::{Certificate, MobileProvision};
+use super::{CertificateIdentity, MobileProvision};
 use super::SignerSettings;
 use super::{Bundle, BundleType, PlistInfoTrait};
 
 pub struct Signer {
-    certificate: Option<Certificate>,
+    certificate: Option<CertificateIdentity>,
     settings: SignerSettings,
     provisioning_files: Vec<MobileProvision>,
 }
 
 impl Signer {
     pub fn new(
-        certificate: Option<Certificate>,
+        certificate: Option<CertificateIdentity>,
         settings: SignerSettings,
         provisioning_files: Vec<MobileProvision>,
     ) -> Self {

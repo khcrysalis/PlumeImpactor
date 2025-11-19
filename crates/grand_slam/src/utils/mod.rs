@@ -6,7 +6,7 @@ mod bundle;
 
 pub use macho::MachO;
 pub use provision::MobileProvision;
-pub use certificate::Certificate;
+pub use certificate::CertificateIdentity;
 pub use signer::Signer;
 pub use bundle::Bundle;
 pub use bundle::BundleType;

@@ -1,6 +1,5 @@
 pub mod auth;
 pub mod developer;
-pub mod certificate;
 pub mod utils;
 
 use plist::Dictionary;
@@ -11,7 +10,7 @@ use crate::auth::account::request::RequestType;
 pub use omnisette::AnisetteConfiguration;
 pub use utils::MachO;
 pub use utils::MobileProvision;
-pub use utils::Certificate;
+pub use utils::CertificateIdentity;
 pub use utils::Signer;
 pub use utils::Bundle;
 pub use utils::BundleType;
@@ -70,4 +69,12 @@ pub enum Error {
     Anisette(#[from] omnisette::AnisetteError),
     #[error("Serde JSON error: {0}")]
     SerdeJson(#[from] serde_json::Error),
+    #[error("RSA error: {0}")]
+    Rsa(#[from] rsa::Error),
+    #[error("PKCS1 RSA error: {0}")]
+    PKCS1(#[from] rsa::pkcs1::Error),
+    #[error("PKCS8 RSA error: {0}")]
+    PKCS8(#[from] rsa::pkcs8::Error),
+    #[error("RCGen error: {0}")]
+    RcGen(#[from] rcgen::RcgenError),
 }

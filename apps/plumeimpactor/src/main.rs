@@ -12,8 +12,6 @@ use std::{
     path::{Path, PathBuf}
 };
 
-pub const APP_NAME: &str = concat!(env!("CARGO_PKG_NAME"), " – Version ", env!("CARGO_PKG_VERSION"));
-
 #[tokio::main]
 async fn main() {
     _ = rustls::crypto::ring::default_provider().install_default().unwrap();

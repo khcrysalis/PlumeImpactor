@@ -114,15 +114,15 @@ impl CertificateIdentity {
         Ok(dir)
     }
 
-    fn set_machine_id(&mut self, machine_id: String) {
-        println!("Setting machine id: {}", machine_id);
-        self.machine_id = Some(machine_id);
-    }
+    // fn set_machine_id(&mut self, machine_id: String) {
+    //     println!("Setting machine id: {}", machine_id);
+    //     self.machine_id = Some(machine_id);
+    // }
 
-    fn set_serial_number(&mut self, serial_number: String) {
-        println!("Setting serial number: {}", serial_number);
-        self.serial_number = Some(serial_number);
-    }
+    // fn set_serial_number(&mut self, serial_number: String) {
+    //     println!("Setting serial number: {}", serial_number);
+    //     self.serial_number = Some(serial_number);
+    // }
 
     // TODO: cleanest p12 code of them all
     // pub fn create_pkcs12(&self, data: &[Vec<u8>; 2]) -> Option<Vec<u8>> {

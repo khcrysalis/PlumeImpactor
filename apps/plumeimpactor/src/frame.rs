@@ -1,8 +1,7 @@
 use std::cell::RefCell;
-use std::fmt::write;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::{fs, ptr, thread};
+use std::{ptr, thread};
 
 use grand_slam::{AnisetteConfiguration, BundleType, CertificateIdentity, MachO, MobileProvision, Signer};
 use grand_slam::auth::Account;
@@ -303,6 +302,7 @@ impl PlumeFrame {
         });
         
         self.install_page.set_install_handler({
+            let frame = self.frame.clone();
             let message_handler = message_handler.clone();
             let sender = sender.clone();
             move || {
@@ -336,7 +336,7 @@ impl PlumeFrame {
 
                     let install_result = rt.block_on(async {
                         let session = DeveloperSession::with(account.clone());
-                        
+
                         sender_clone.send(PlumeFrameMessage::InstallProgress(10, Some("Ensuring current device is registered...".to_string()))).ok();
 
                         let mut usbmuxd = UsbmuxdConnection::default()

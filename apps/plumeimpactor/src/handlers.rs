@@ -130,6 +130,11 @@ impl PlumeFrameMessageHandler {
                 self.plume_frame.add_ipa_button.enable(false);
             }
             PlumeFrameMessage::PackageDeselected => {
+                // TODO: should it be this way?
+                if let Some(package) = self.package_selected.as_ref() {
+                    package.clone().remove_package_stage();
+                }
+
                 self.package_selected = None;
                 self.plume_frame.install_page.panel.hide();
                 self.plume_frame.default_page.panel.show(true);

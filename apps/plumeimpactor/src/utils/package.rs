@@ -66,6 +66,10 @@ impl Package {
         entry.read_to_end(&mut buf)?;
         Ok(plist::from_bytes(&buf)?)
     }
+
+    pub fn remove_package_stage(self) {
+        fs::remove_dir_all(&self.stage_dir).ok();
+    }
 }
 
 macro_rules! get_plist_dict_value {

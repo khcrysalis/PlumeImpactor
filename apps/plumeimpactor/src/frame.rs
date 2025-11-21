@@ -21,6 +21,11 @@ use crate::keychain::AccountCredentials;
 use crate::pages::{LoginDialog, DefaultPage, InstallPage, SettingsDialog, WINDOW_SIZE, create_default_page, create_install_page, create_login_dialog, create_settings_dialog};
 use crate::utils::{Device, Package};
 
+#[cfg(target_os = "windows")]
+const INSTALLER_IMAGE_BYTES: &[u8] = include_bytes!("../../../package/windows/icon.rgba");
+#[cfg(target_os = "windows")]
+const INSTALLER_IMAGE_SIZE: i32 = 128;
+
 pub const APP_NAME: &str = concat!(env!("CARGO_PKG_NAME"), " – Version ", env!("CARGO_PKG_VERSION"));
 
 pub struct PlumeFrame {
@@ -43,6 +48,17 @@ impl PlumeFrame {
             .with_size(Size::new(WINDOW_SIZE.0, WINDOW_SIZE.1))
             .with_style(FrameStyle::CloseBox | FrameStyle::MinimizeBox | FrameStyle::Caption | FrameStyle::SystemMenu)
             .build();
+
+        #[cfg(target_os = "windows")]
+        {
+            let bitmap = Bitmap::from_rgba(
+                INSTALLER_IMAGE_BYTES,
+                INSTALLER_IMAGE_SIZE,
+                INSTALLER_IMAGE_SIZE,
+            ).unwrap();
+
+            frame.set_icon(&bitmap);
+        }
 
         let sizer = BoxSizer::builder(Orientation::Vertical).build();
 

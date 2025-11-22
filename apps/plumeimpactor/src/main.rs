@@ -32,6 +32,10 @@ pub enum Error {
     Idevice(#[from] idevice::IdeviceError),
     #[error("GrandSlam error: {0}")]
     GrandSlam(#[from] grand_slam::Error),
+    #[error("Codesign error: {0}")]
+    Codesign(#[from] apple_codesign::AppleCodesignError),
+    #[error("Utils error: {0}")]
+    Utils(#[from] utils::Error),
 }
 
 pub fn get_data_path() -> PathBuf {

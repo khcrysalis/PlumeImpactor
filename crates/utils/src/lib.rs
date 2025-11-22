@@ -2,6 +2,7 @@ mod options;
 mod package;
 mod bundle;
 mod device;
+mod signer;
 
 pub use options::{
     SignerOptions, // Main

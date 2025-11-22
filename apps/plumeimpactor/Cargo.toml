@@ -13,6 +13,7 @@ tokio.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 plist.workspace = true
+apple-codesign.workspace = true
 grand_slam = { path = "../../crates/grand_slam", features = ["vendored-botan"] }
 utils = { path = "../../crates/utils" }
 

@@ -2672,6 +2672,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
+name = "options"
+version = "0.0.1"
+dependencies = [
+ "grand_slam",
+ "idevice",
+ "plist",
+ "thiserror 2.0.16",
+ "uuid",
+ "zip 4.6.1",
+]
+
+[[package]]
 name = "p12"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2964,6 +2976,7 @@ dependencies = [
  "grand_slam",
  "idevice",
  "keyring",
+ "options",
  "plist",
  "rustls 0.23.32",
  "thiserror 2.0.16",
@@ -2971,7 +2984,6 @@ dependencies = [
  "uuid",
  "winres",
  "wxdragon",
- "zip 4.6.1",
 ]
 
 [[package]]

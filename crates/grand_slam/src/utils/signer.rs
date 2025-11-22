@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::PathBuf;
 
 use apple_codesign::{SigningSettings, UnifiedSigner};
@@ -6,24 +5,20 @@ use apple_codesign::{SigningSettings, UnifiedSigner};
 use crate::Error;
 
 use super::{CertificateIdentity, MobileProvision};
-use super::SignerSettings;
 use super::{Bundle, BundleType, PlistInfoTrait};
 
 pub struct Signer {
     certificate: Option<CertificateIdentity>,
-    settings: SignerSettings,
     provisioning_files: Vec<MobileProvision>,
 }
 
 impl Signer {
     pub fn new(
         certificate: Option<CertificateIdentity>,
-        settings: SignerSettings,
         provisioning_files: Vec<MobileProvision>,
     ) -> Self {
         Self {
             certificate,
-            settings,
             provisioning_files,
         }
     }
@@ -60,10 +55,6 @@ impl Signer {
                 if let Some(bundle_executable) = bundle.get_executable() {
                     let binary_path = bundle.dir().join(bundle_executable);
                     prov.merge_entitlements(binary_path).ok(); // if it fails we can ignore 
-                }
-
-                if self.settings.should_embed_provisioning {
-                    fs::write(bundle.dir().join("embedded.mobileprovision"), &prov.provision_data)?;
                 }
 
                 if let Ok(ent_xml) = prov.entitlements_as_bytes() {

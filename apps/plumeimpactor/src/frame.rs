@@ -7,7 +7,11 @@ use grand_slam::{AnisetteConfiguration, BundleType, CertificateIdentity, MachO, 
 use grand_slam::auth::Account;
 use grand_slam::developer::DeveloperSession;
 use grand_slam::utils::{PlistInfoTrait};
+use idevice::{IdeviceService, usbmuxd};
+use idevice::house_arrest::HouseArrestClient;
 use idevice::utils::installation;
+use options::{SignerApp, SignerMode};
+use options::package::Package;
 use tokio::fs;
 use wxdragon::prelude::*;
 
@@ -20,7 +24,7 @@ use crate::get_data_path;
 use crate::handlers::{PlumeFrameMessage, PlumeFrameMessageHandler};
 use crate::keychain::AccountCredentials;
 use crate::pages::{LoginDialog, DefaultPage, InstallPage, SettingsDialog, WINDOW_SIZE, create_default_page, create_install_page, create_login_dialog, create_settings_dialog};
-use crate::utils::{Device, Package};
+use crate::utils::{Device};
 
 #[cfg(target_os = "windows")]
 const INSTALLER_IMAGE_BYTES: &[u8] = include_bytes!("../../../package/windows/icon.rgba");
@@ -319,7 +323,6 @@ impl PlumeFrame {
         });
         
         self.install_page.set_install_handler({
-            let frame = self.frame.clone();
             let message_handler = message_handler.clone();
             let sender = sender.clone();
             move || {
@@ -381,7 +384,7 @@ impl PlumeFrame {
                             .ok_or("No teams available for the Apple ID account.")?
                             .team_id;
 
-                        let cert_identity: CertificateIdentity = if signer_settings.export_ipa {
+                        let cert_identity: CertificateIdentity = if signer_settings.mode == SignerMode::Export {
                             CertificateIdentity { cert: None, key: None, machine_id: None, p12_data: None, serial_number: None }
                         } else {
                             let cert_identity = CertificateIdentity::new_with_session(
@@ -419,29 +422,29 @@ impl PlumeFrame {
                         if let Some(new_version) = signer_settings.custom_version.as_ref() {
                             bundle.set_version(new_version).map_err(|e| format!("Failed to set new version: {}", e))?;
                         }
-                        
-                        if signer_settings.support_minimum_os_version {
+
+                        if signer_settings.features.support_minimum_os_version {
                             bundle.set_info_plist_key("MinimumOSVersion", "7.0").map_err(|e| format!("Failed to set minimum OS version: {}", e))?;
                         }
-                        
-                        if signer_settings.support_file_sharing {
+
+                        if signer_settings.features.support_file_sharing {
                             bundle.set_info_plist_key("UIFileSharingEnabled", true).map_err(|e| format!("Failed to set file sharing: {}", e))?;
                             bundle.set_info_plist_key("UISupportsDocumentBrowser", true).map_err(|e| format!("Failed to set document opening: {}", e))?;
                         }
-                        
-                        if signer_settings.support_ipad_fullscreen {
+
+                        if signer_settings.features.support_ipad_fullscreen {
                             bundle.set_info_plist_key("UIRequiresFullScreen", true).map_err(|e| format!("Failed to set iPad fullscreen: {}", e))?;
                         }
 
-                        if signer_settings.support_game_mode {
+                        if signer_settings.features.support_game_mode {
                             bundle.set_info_plist_key("GCSupportsGameMode", true).map_err(|e| format!("Failed to set game mode: {}", e))?;
                         }
 
-                        if signer_settings.support_pro_motion {
+                        if signer_settings.features.support_pro_motion {
                             bundle.set_info_plist_key("CADisableMinimumFrameDurationOnPhone", true).map_err(|e| format!("Failed to set document opening: {}", e))?;
                         }
 
-                        if !signer_settings.export_ipa {
+                        if signer_settings.mode != SignerMode::Export {
                             if signer_settings.custom_identifier.is_none() {
                                 signer_settings.custom_identifier = Some(format!("{bundle_identifier}.{team_id}"));
                             }
@@ -456,7 +459,7 @@ impl PlumeFrame {
                             }
                         }
 
-                        if signer_settings.should_embed_p12 {
+                        if signer_settings.app == SignerApp::SideStore {
                             if let Some(p12_data) = &cert_identity.p12_data {
                                 if let Some(serial_number) = &cert_identity.serial_number {
                                     bundle.set_info_plist_key("ALTCertificateID", &**serial_number)
@@ -471,9 +474,9 @@ impl PlumeFrame {
                         
                         let mut provisionings: Vec<MobileProvision> = Vec::new();
                         
-                        if !signer_settings.export_ipa {
+                        if signer_settings.mode != SignerMode::Export {
                             for sub_bundle in &bundles {
-                                if signer_settings.should_only_use_main_provisioning && sub_bundle.dir() != bundle.dir() {
+                                if signer_settings.embedding.single_profile && sub_bundle.dir() != bundle.dir() {
                                     continue;
                                 }
                                 
@@ -534,7 +537,10 @@ impl PlumeFrame {
                                     .map_err(|e| format!("Failed to list profiles: {}", e))?;
 
                                 let profile_data = profiles.provisioning_profile.encoded_profile;
-                                
+
+                                fs::write(bundle.dir().join("embedded.mobileprovision"), &profile_data).await
+                                    .map_err(|e| format!("Failed to write provisioning profile: {}", e))?;
+
                                 let mobile_provision = MobileProvision::load_with_bytes(profile_data.as_ref().to_vec())
                                     .map_err(|e| format!("Failed to load mobile provision: {}", e))?;
                                 
@@ -546,14 +552,13 @@ impl PlumeFrame {
                         
                         let signer = Signer::new(
                             Some(cert_identity),
-                            signer_settings.clone(),
                             provisionings,
                         );
 
                         signer.sign_bundle(&bundle)
                             .map_err(|e| format!("Failed to sign bundle: {}", e))?;
                         
-                        if !signer_settings.export_ipa {
+                        if signer_settings.mode != SignerMode::Export {
                             let provider = usbmuxd_device.to_provider(UsbmuxdAddr::from_env_var().unwrap(), "baller");
                             
                             let bundle_name = bundle.get_name().unwrap_or_default();
@@ -575,6 +580,38 @@ impl PlumeFrame {
                                 .map_err(|e| format!("Failed to install package: {}", e))?;
                         } else {
                             todo!("Export IPA functionality");
+                        }
+
+                        if signer_settings.app.supports_pairing_file() {
+                            if let Some(pairing_file_bundle_path) = signer_settings.app.pairing_file_path() {
+                                let mut usbmuxd = UsbmuxdConnection::default()
+                                    .await
+                                    .map_err(|e| format!("usbmuxd connect error: {e}"))?;
+
+                                let mut pairing_file = usbmuxd.get_pair_record(&device.uuid)
+                                    .await
+                                    .map_err(|e| format!("Failed to get pairing record: {}", e))?;
+
+                                pairing_file.udid = Some(device.uuid.clone());
+
+                                let provider = usbmuxd_device.to_provider(UsbmuxdAddr::default(), "baller");
+
+                                let hc = HouseArrestClient::connect(&provider)
+                                    .await
+                                    .map_err(|e| format!("Failed to connect to House Arrest service: {}", e))?;
+
+                                let mut ac = hc.vend_documents(signer_settings.custom_identifier.unwrap())
+                                    .await
+                                    .map_err(|e| format!("Failed to vend documents: {}", e))?;
+
+                                let mut f = ac.open(pairing_file_bundle_path, idevice::afc::opcode::AfcFopenMode::Wr)
+                                    .await
+                                    .map_err(|e| format!("Failed to open pairing file: {}", e))?;
+
+                                f.write(&pairing_file.serialize().unwrap())
+                                    .await
+                                    .map_err(|e| format!("Failed to write pairing file: {}", e))?;
+                            }
                         }
 
                         Ok::<_, String>(())

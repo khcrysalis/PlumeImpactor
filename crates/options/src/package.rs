@@ -8,8 +8,8 @@ use uuid::Uuid;
 use zip::ZipArchive;
 
 use grand_slam::Bundle;
-use grand_slam::utils::{PlistInfoTrait, SignerSettings};
-use crate::Error;
+use grand_slam::utils::{PlistInfoTrait};
+use crate::{Error, SignerApp, SignerOptions};
 
 #[derive(Debug, Clone)]
 pub struct Package {
@@ -106,25 +106,15 @@ impl PlistInfoTrait for Package {
 }
 
 impl Package {
-    // TODO: custom per-app settings
-    pub fn load_into_signer_settings<'settings, 'slf: 'settings>(
+    pub fn load_into_signer_options<'settings, 'slf: 'settings>(
         &'slf self,
-        settings: &'settings mut SignerSettings,
+        settings: &'settings mut SignerOptions,
     ) {
-        if let Some(identifier) = self.get_bundle_identifier() {
-            match identifier.as_str() {
-                "com.kdt.livecontainer" => {
-                    settings.should_only_use_main_provisioning = true;
-                }
-                "com.SideStore.SideStore" => {
-                    settings.should_embed_p12 = true;
-                }
-                _ => {}
-            }
-        }
+        let app = SignerApp::from_bundle_identifier(
+            self.get_bundle_identifier().as_deref()
+        );
+        let options = SignerOptions::new_for_app(app);
+
+        *settings = options;
     }
-    // depending on the apps pairing file placement, theres going to be different paths...
-    // Feather, StikDebug, Protokolle, Antrag, use ./pairingFile.plist
-    // LiveContainers uses ./SideStore/Documents/ALTPairingFile.mobiledevicepairing
-    // SideStore uses ./ALTPairingFile.mobiledevicepairing 
 }

@@ -1,0 +1,15 @@
+[package]
+name = "options"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+zip.workspace = true
+idevice.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+plist.workspace = true
+grand_slam = { path = "../grand_slam" }

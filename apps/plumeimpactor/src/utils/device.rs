@@ -31,6 +31,8 @@ impl Device {
         let name = Self::get_name_from_usbmuxd_device(&usbmuxd_device)
             .await
             .unwrap_or_default();
+
+        println!("Found device: {} ({})", name, usbmuxd_device.udid);
         
         Device {
             name,
@@ -44,6 +46,7 @@ impl Device {
     ) -> Result<String, Error> {
         let mut lockdown = LockdownClient::connect(&device.to_provider(UsbmuxdAddr::default(), CONNECTION_LABEL)).await?;
         let values = lockdown.get_value(None, None).await?;
+        println!("Device values: {:?}", values);
         Ok(get_dict_string!(values, "DeviceName"))
     }
 }

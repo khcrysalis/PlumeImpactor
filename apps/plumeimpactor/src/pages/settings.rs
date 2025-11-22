@@ -111,17 +111,6 @@ pub fn create_settings_dialog(parent: &Window) -> SettingsDialog {
 
     sizer.add(&StaticLine::builder(&dialog).build(), 0, SizerFlag::Expand | SizerFlag::All, 13);
 
-    let cert_button_sizer = BoxSizer::builder(Orientation::Horizontal).build();
-    let import_cert_button = Button::builder(&dialog).with_label("Import P12").build();
-    import_cert_button.enable(false);
-    let export_cert_button = Button::builder(&dialog).with_label("Export P12").build();
-    export_cert_button.enable(false);
-    cert_button_sizer.add(&import_cert_button, 1, SizerFlag::Expand, 0);
-    cert_button_sizer.add_spacer(13);
-    cert_button_sizer.add(&export_cert_button, 1, SizerFlag::Expand, 0);
-
-    sizer.add_sizer(&cert_button_sizer, 0, SizerFlag::Right | SizerFlag::Left, 13);
-
     dialog.set_sizer(sizer, true);
 
     SettingsDialog {

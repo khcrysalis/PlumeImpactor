@@ -1,32 +1,38 @@
-use std::cell::RefCell;
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::{ptr, thread};
+use std::{
+    cell::RefCell,
+    path::PathBuf,
+    rc::Rc,
+    ptr,
+    thread,
+};
 
-use grand_slam::{AnisetteConfiguration, BundleType, CertificateIdentity, MachO, MobileProvision, Signer};
-use grand_slam::auth::Account;
-use grand_slam::developer::DeveloperSession;
-use grand_slam::utils::{PlistInfoTrait};
-use idevice::{IdeviceService, usbmuxd};
-use idevice::house_arrest::HouseArrestClient;
-use idevice::utils::installation;
-use options::{SignerApp, SignerMode};
-use options::package::Package;
+use grand_slam::{
+    AnisetteConfiguration, CertificateIdentity, MachO, MobileProvision, SettingsScope, SigningSettings, UnifiedSigner, auth::Account, developer::DeveloperSession
+};
+
+use idevice::{
+    IdeviceService,
+    house_arrest::HouseArrestClient,
+    utils::installation,
+    usbmuxd::{UsbmuxdAddr, UsbmuxdConnection, UsbmuxdListenEvent},
+};
+
+use utils::{SignerApp, SignerMode, PlistInfoTrait, Package, BundleType, Device};
 
 use plist::Value;
-use tokio::fs;
 use wxdragon::prelude::*;
-
 use futures::StreamExt;
-use idevice::usbmuxd::{UsbmuxdAddr, UsbmuxdConnection, UsbmuxdListenEvent};
-use tokio::runtime::Builder;
-use tokio::sync::mpsc;
+use tokio::{fs, runtime::Builder, sync::mpsc};
 
-use crate::get_data_path;
-use crate::handlers::{PlumeFrameMessage, PlumeFrameMessageHandler};
-use crate::keychain::AccountCredentials;
-use crate::pages::{LoginDialog, DefaultPage, InstallPage, SettingsDialog, WINDOW_SIZE, create_default_page, create_install_page, create_login_dialog, create_settings_dialog};
-use crate::utils::{Device};
+use crate::{
+    get_data_path,
+    handlers::{PlumeFrameMessage, PlumeFrameMessageHandler},
+    keychain::AccountCredentials,
+    pages::{
+        LoginDialog, DefaultPage, InstallPage, SettingsDialog, WINDOW_SIZE,
+        create_default_page, create_install_page, create_login_dialog, create_settings_dialog,
+    },
+};
 
 #[cfg(target_os = "windows")]
 const INSTALLER_IMAGE_BYTES: &[u8] = include_bytes!("../../../package/windows/icon.rgba");
@@ -461,128 +467,172 @@ impl PlumeFrame {
                             }
                         }
 
-                        if signer_settings.app == SignerApp::SideStore {
-                            let mut is_lc_ss = false;
-                            if bundle.dir().join("Frameworks/SideStoreApp.framework/Info.plist").exists() {
-                                is_lc_ss = true;
-                            }
-
+                        if 
+                            signer_settings.app == SignerApp::SideStore 
+                            || signer_settings.app == SignerApp::AltStore 
+                            || signer_settings.app == SignerApp::LiveContainerAndSideStore 
+                        {
                             if let Some(p12_data) = &cert_identity.p12_data {
                                 if let Some(serial_number) = &cert_identity.serial_number {
-                                    if is_lc_ss {
-                                        let sidestore_plist_path = bundle.dir().join("Frameworks/SideStoreApp.framework/Info.plist");
+                                    if signer_settings.app == SignerApp::LiveContainerAndSideStore {
+                                        // TODO: we can probably check if the framework bundle identifier is a certain value for finding the correct bundle
+                                        let sidestore_plist_path = bundle.bundle_dir().join("Frameworks/SideStoreApp.framework/Info.plist");
                                         let mut plist = Value::from_file(sidestore_plist_path.clone()).map_err(|e| format!("Failed to load p12: {e}"))?;
                                         if let Some(dict) = plist.as_dictionary_mut() {
                                             dict.insert("ALTCertificateID".to_string(), (&**serial_number).into());
                                         }
                                         plist.to_file_xml(&sidestore_plist_path).map_err(|e| format!("Failed to set cert serial: {}", e))?;
-                                        fs::write(bundle.dir().join("Frameworks/SideStoreApp.framework/ALTCertificate.p12"), p12_data)
+                                        fs::write(bundle.bundle_dir().join("Frameworks/SideStoreApp.framework/ALTCertificate.p12"), p12_data)
                                             .await.map_err(|e| format!("Failed to write p12: {}", e))?;
                                     } else {
                                         bundle.set_info_plist_key("ALTCertificateID", &**serial_number)
                                             .map_err(|e| format!("Failed to set cert serial: {}", e))?;
-                                        fs::write(bundle.dir().join("ALTCertificate.p12"), p12_data)
+                                        fs::write(bundle.bundle_dir().join("ALTCertificate.p12"), p12_data)
                                             .await.map_err(|e| format!("Failed to write p12: {}", e))?;
                                     }
 
                                 }
                             }
                         }
+
                         
                         sender_clone.send(PlumeFrameMessage::InstallProgress(30, Some(format!("Registering {}...", bundle.get_name().unwrap_or_default())))).ok();
-                        
                         let mut provisionings: Vec<MobileProvision> = Vec::new();
-                        
+
+
                         if signer_settings.mode != SignerMode::Export {
                             for sub_bundle in &bundles {
-                                if signer_settings.embedding.single_profile && sub_bundle.dir() != bundle.dir() {
-                                    continue;
-                                }
-                                
-                                if 
-                                    sub_bundle._type != BundleType::AppExtension &&
-                                    sub_bundle._type != BundleType::App 
+                                let mut settings = SigningSettings::default();
+                                cert_identity.load_into_signing_settings(&mut settings)
+                                    .map_err(|e| format!("Failed to load cert into signing settings: {}", e))?;
+
+                                let entitlements_xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>
+"#.to_string();
+
+                                settings.set_entitlements_xml(
+                                    SettingsScope::Main,
+                                    entitlements_xml
+                                ).map_err(|e| format!("Failed to set entitlements XML: {}", e))?;
+
+                                println!("bundle: {:?}", sub_bundle.bundle_dir());
+
+                                if
+                                    (*sub_bundle.bundle_type() == BundleType::AppExtension || *sub_bundle.bundle_type() == BundleType::App)
+                                    && 
+                                    (!signer_settings.embedding.single_profile || sub_bundle.bundle_dir() == bundle.bundle_dir())
                                 {
-                                    continue;
-                                }
 
-                                let bundle_executable_name = sub_bundle.get_executable()
-                                    .ok_or("Failed to get executable from bundle.")?;
-                                
-                                let bundle_executable_path = sub_bundle.dir().join(&bundle_executable_name);
-                                
-                                let macho = MachO::new(&bundle_executable_path)
-                                    .map_err(|e| format!("Failed to read Mach-O binary: {}", e))?;
-                                
-                                let id = sub_bundle.get_bundle_identifier()
-                                    .ok_or("Failed to get bundle identifier from bundle.")?;
-                                
-                                println!("{}", id);
+                                    let bundle_executable_name = sub_bundle.get_executable()
+                                        .ok_or("Failed to get executable from bundle.")?;
+                                    
+                                    let bundle_executable_path = sub_bundle.bundle_dir().join(&bundle_executable_name);
+                                    
+                                    let macho = MachO::new(&bundle_executable_path)
+                                        .map_err(|e| format!("Failed to read Mach-O binary: {}", e))?;
+                                    
+                                    let id = sub_bundle.get_bundle_identifier()
+                                        .ok_or("Failed to get bundle identifier from bundle.")?;
+                                    
+                                    println!("{}", id);
 
-                                session.qh_ensure_app_id(team_id, &sub_bundle.get_name().unwrap_or_default(), &id)
-                                    .await
-                                    .map_err(|e| format!("Failed to ensure app ID: {}", e))?;
-                                
-                                let capabilities = session.v1_list_capabilities(team_id)
-                                    .await
-                                    .map_err(|e| format!("Failed to list capabilities: {}", e))?;
-                                
-                                let app_id_id = session.qh_get_app_id(team_id, &id)
-                                    .await
-                                    .map_err(|e| e.to_string())?
-                                    .ok_or("Failed to get ensured app ID.")?;
-
-                                if let Some(caps) = macho.capabilities_for_entitlements(&capabilities.data) {
-                                    session.v1_update_app_id(team_id, &id, caps)
+                                    session.qh_ensure_app_id(team_id, &sub_bundle.get_name().unwrap_or_default(), &id)
                                         .await
-                                        .map_err(|e| format!("Failed to enable capabilities: {}", e))?;
-                                }
-                                
-                                if let Some(app_groups) = macho.app_groups_for_entitlements() {
-                                    let mut app_group_ids: Vec<String> = Vec::new();
-                                    for group in &app_groups {
-                                        let group = format!("{group}.{team_id}");
-                                        let group_id = session.qh_ensure_app_group(team_id, &group, &group)
+                                        .map_err(|e| format!("Failed to ensure app ID: {}", e))?;
+                                    
+                                    let capabilities = session.v1_list_capabilities(team_id)
+                                        .await
+                                        .map_err(|e| format!("Failed to list capabilities: {}", e))?;
+                                    
+                                    let app_id_id = session.qh_get_app_id(team_id, &id)
+                                        .await
+                                        .map_err(|e| e.to_string())?
+                                        .ok_or("Failed to get ensured app ID.")?;
+
+                                    if let Some(caps) = macho.capabilities_for_entitlements(&capabilities.data) {
+                                        session.v1_update_app_id(team_id, &id, caps)
                                             .await
-                                            .map_err(|e| format!("Failed to ensure app group: {}", e))?;
-                                        app_group_ids.push(group_id.application_group);
+                                            .map_err(|e| format!("Failed to enable capabilities: {}", e))?;
+                                    }
+                                    
+                                    if let Some(app_groups) = macho.app_groups_for_entitlements() {
+                                        let mut app_group_ids: Vec<String> = Vec::new();
+                                        for group in &app_groups {
+                                            let group = format!("{group}.{team_id}");
+                                            let group_id = session.qh_ensure_app_group(team_id, &group, &group)
+                                                .await
+                                                .map_err(|e| format!("Failed to ensure app group: {}", e))?;
+                                            app_group_ids.push(group_id.application_group);
+                                        }
+
+                                        if signer_settings.app == SignerApp::SideStore || signer_settings.app == SignerApp::AltStore {
+                                            bundle.set_info_plist_key("ALTAppGroups", Value::Array(app_groups.iter().map(|s| Value::String(format!("{s}.{team_id}"))).collect()))
+                                                .map_err(|e| format!("Failed to set ALTAppGroups: {}", e))?;
+                                        }
+
+                                        session.qh_assign_app_group(team_id, &app_id_id.app_id_id, &app_group_ids)
+                                            .await
+                                            .map_err(|e| format!("Failed to add app group to app ID: {}", e))?;
                                     }
 
-                                    if signer_settings.app == SignerApp::SideStore {
-                                        bundle.set_info_plist_key("ALTAppGroups", Value::Array(app_groups.iter().map(|s| Value::String(format!("{s}.{team_id}"))).collect()))
-                                            .map_err(|e| format!("Failed to set ALTAppGroups: {}", e))?;
-                                    }
-
-                                    session.qh_assign_app_group(team_id, &app_id_id.app_id_id, &app_group_ids)
+                                    let profiles = session.qh_get_profile(team_id, &app_id_id.app_id_id)
                                         .await
-                                        .map_err(|e| format!("Failed to add app group to app ID: {}", e))?;
+                                        .map_err(|e| format!("Failed to list profiles: {}", e))?;
+
+                                    let profile_data = profiles.provisioning_profile.encoded_profile;
+
+                                    fs::write(bundle.bundle_dir().join("embedded.mobileprovision"), &profile_data).await
+                                        .map_err(|e| format!("Failed to write provisioning profile: {}", e))?;
+
+                                    let mobile_provision = MobileProvision::load_with_bytes(profile_data.as_ref().to_vec())
+                                        .map_err(|e| format!("Failed to load mobile provision: {}", e))?;
+                                    
+                                    provisionings.push(mobile_provision);
+
+                                    let mut matched_prov = None;
+
+                                    for prov in &provisionings {
+                                        if let (Some(bundle_id), Some(team_id)) = (bundle.get_bundle_identifier(), prov.bundle_id()) {
+                                            if team_id == bundle_id {
+                                                matched_prov = Some(prov);
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    let mut prov = matched_prov.cloned().unwrap_or_else(|| provisionings[0].clone());
+
+                                    if let Some(bundle_id) = bundle.get_bundle_identifier() {
+                                        prov.replace_wildcard_in_entitlements(&bundle_id);
+                                    }
+
+                                    if let Some(bundle_executable) = bundle.get_executable() {
+                                        let binary_path = bundle.bundle_dir().join(bundle_executable);
+                                        prov.merge_entitlements(binary_path).ok(); // if it fails we can ignore 
+                                    }
+
+                                    if let Ok(ent_xml) = prov.entitlements_as_bytes() {
+                                        settings.set_entitlements_xml(
+                                            SettingsScope::Main, 
+                                            String::from_utf8_lossy(&ent_xml)
+                                        ).map_err(|e| format!("Failed to set entitlements XML: {}", e))?;
+                                    }
                                 }
 
-                                let profiles = session.qh_get_profile(team_id, &app_id_id.app_id_id)
-                                    .await
-                                    .map_err(|e| format!("Failed to list profiles: {}", e))?;
-
-                                let profile_data = profiles.provisioning_profile.encoded_profile;
-
-                                fs::write(bundle.dir().join("embedded.mobileprovision"), &profile_data).await
-                                    .map_err(|e| format!("Failed to write provisioning profile: {}", e))?;
-
-                                let mobile_provision = MobileProvision::load_with_bytes(profile_data.as_ref().to_vec())
-                                    .map_err(|e| format!("Failed to load mobile provision: {}", e))?;
-                                
-                                provisionings.push(mobile_provision);
+                                UnifiedSigner::new(settings).sign_path_in_place(bundle.bundle_dir())
+                                    .map_err(|e| format!("Failed to sign bundle: {}", e))?;
                             }
                         }
 
                         sender_clone.send(PlumeFrameMessage::InstallProgress(50, Some(format!("Signing {}...", bundle.get_name().unwrap_or_default())))).ok();
-                        
-                        let signer = Signer::new(
-                            Some(cert_identity),
-                            provisionings,
-                        );
 
-                        signer.sign_bundle(&bundle)
-                            .map_err(|e| format!("Failed to sign bundle: {}", e))?;
+                        if let Some(key) = cert_identity.key {
+                            key.finish()
+                                .map_err(|e| format!("Failed to finalize key usage: {}", e))?;
+                        }
                         
                         if signer_settings.mode != SignerMode::Export {
                             let provider = usbmuxd_device.to_provider(UsbmuxdAddr::from_env_var().unwrap(), "baller");
@@ -601,7 +651,7 @@ impl PlumeFrame {
                             
                             let state = ();
                             
-                            installation::install_package_with_callback(&provider, bundle.dir(), None, callback, state)
+                            installation::install_package_with_callback(&provider, bundle.bundle_dir(), None, callback, state)
                                 .await
                                 .map_err(|e| format!("Failed to install package: {}", e))?;
                         } else {

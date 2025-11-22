@@ -4,7 +4,7 @@ members = [
     "apps/plumeimpactor",
     "apps/plumesign",
     "crates/grand_slam",
-    "crates/options"
+    "crates/utils"
 ]
 
 [workspace.package]

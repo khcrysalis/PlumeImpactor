@@ -1,21 +1,3 @@
-pub mod package;
-
-use thiserror::Error as ThisError;
-
-#[derive(Debug, ThisError)]
-pub enum Error {
-    #[error("Zip error: {0}")]
-    Zip(#[from] zip::result::ZipError),
-    #[error("Info.plist not found")]
-    PackageInfoPlistMissing,
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("Plist error: {0}")]
-    Plist(#[from] plist::Error),
-    #[error("GrandSlam error: {0}")]
-    GrandSlam(#[from] grand_slam::Error),
-}
-
 /// Settings for the signer process.
 #[derive(Clone, Debug)]
 pub struct SignerOptions {
@@ -57,7 +39,8 @@ impl SignerOptions {
         };
 
         match app {
-            SignerApp::LiveContainer => {
+            SignerApp::LiveContainer | 
+            SignerApp::LiveContainerAndSideStore => {
                 settings.embedding.single_profile = true;
             }
             _ => {}
@@ -104,6 +87,7 @@ pub enum SignerApp {
     Antrag,
     Feather,
     Protokolle,
+    AltStore,
     SideStore,
     LiveContainer,
     LiveContainerAndSideStore,
@@ -118,13 +102,14 @@ impl SignerApp {
             Some("thewonderofyou.antrag2") => SignerApp::Antrag,
             Some("thewonderofyou.Feather") => SignerApp::Feather,
             Some("com.SideStore.SideStore") => SignerApp::SideStore,
+            Some("com.rileytestut.AltStore") => SignerApp::AltStore,
             Some("com.stik.js") => SignerApp::StikDebug,
             _ => SignerApp::Default,
         }
     }
 
     pub fn supports_pairing_file(&self) -> bool {
-        !matches!(self, SignerApp::Default | SignerApp::LiveContainer)
+        !matches!(self, SignerApp::Default | SignerApp::LiveContainer | SignerApp::AltStore)
     }
 
     pub fn pairing_file_path(&self) -> Option<&'static str> {

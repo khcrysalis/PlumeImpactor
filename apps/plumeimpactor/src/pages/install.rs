@@ -1,5 +1,4 @@
-use grand_slam::utils::{PlistInfoTrait};
-use options::{SignerOptions, package::Package};
+use utils::{PlistInfoTrait, SignerOptions, Package};
 use wxdragon::prelude::*;
 
 #[derive(Clone)]

@@ -1,5 +1,5 @@
 [package]
-name = "options"
+name = "utils"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true

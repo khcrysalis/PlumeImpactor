@@ -4,7 +4,6 @@ mod frame;
 mod keychain;
 mod pages;
 mod handlers;
-mod utils;
 
 use std::{
     env, 

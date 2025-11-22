@@ -34,6 +34,19 @@ impl Signer {
         for bundle in &bundles {
             let mut settings = self.build_base_settings()?;
 
+            
+            let entitlements_xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>
+"#.to_string();
+
+            settings.set_entitlements_xml(
+                apple_codesign::SettingsScope::Main,
+                entitlements_xml
+            )?;
+
             if bundle._type == BundleType::AppExtension || bundle._type == BundleType::App {
                 let mut matched_prov = None;
 

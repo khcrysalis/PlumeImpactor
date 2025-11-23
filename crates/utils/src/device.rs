@@ -119,22 +119,26 @@ impl Device {
         let stage_dir = env::temp_dir().join(format!("plume_mac_stage_{}", Uuid::new_v4().to_string().to_uppercase()));
         let app_name = app_path.file_name().ok_or(Error::Other("Invalid app path".to_string()))?;
         
-        // Create the outer app directory (e.g., LiveContainer.app)
+        // iOS Apps on macOS need to be wrapped in a special structure, more specifically
+        // ```
+        // LiveContainer.app
+        // ├── WrappedBundle -> Wrapper/LiveContainer.app
+        // └── Wrapper
+        //     └── LiveContainer.app
+        // ```
+        // Then install to /Applications/...
+
         let outer_app_dir = stage_dir.join(app_name);
         let wrapper_dir = outer_app_dir.join("Wrapper");
         
-        // Create Wrapper directory
         fs::create_dir_all(&wrapper_dir).await?;
         
-        // Copy original app into Wrapper/
         let wrapped_app_path = wrapper_dir.join(app_name);
         Self::copy_dir_recursively(app_path, &wrapped_app_path).await?;
 
-        // Create WrappedBundle symlink pointing to Wrapper/LiveContainer.app
         let wrapped_bundle_path = outer_app_dir.join("WrappedBundle");
         fs::symlink(PathBuf::from("Wrapper").join(app_name), &wrapped_bundle_path).await?;
         
-        // Move to /Applications
         let applications_dir = PathBuf::from("/Applications").join(app_name);
         fs::rename(&outer_app_dir, &applications_dir).await?;
 

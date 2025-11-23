@@ -8,7 +8,8 @@ WIP open-source, cross-platform, and feature rich iOS/tvOS sideloading applicati
 
 ### Features
 - User friendly and clean UI.
-- Sign and sideload applications with your Apple ID.
+- Sign and sideload applications to iOS with your Apple ID.
+- Sign and sideload applications to your Mac (arm)
 - Simple customization options for the app.
 - Generates P12 for SideStore/AltStore to use, similar to how Altserver works.
 - Automatically populate pairing files for specific apps like SideStore, Antrag, and Protokolle.

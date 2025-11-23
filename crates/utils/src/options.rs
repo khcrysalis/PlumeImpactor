@@ -68,10 +68,11 @@ pub struct SignerEmbedding {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignerMode {
-    Install,
-    SignAndInstall,
-    AdhocSignAndInstall,
-    Export,
+    Install, // Direct Install
+    SignAndInstall, // Standard Sideloading
+    SignAndInstallMacOS, // Apple Silicon Sideloading
+    AdhocSignAndInstall, // AppSync
+    Export, // Modify & Export
 }
 
 impl Default for SignerMode {

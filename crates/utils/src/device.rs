@@ -29,8 +29,9 @@ macro_rules! get_dict_string {
 #[derive(Debug, Clone)]
 pub struct Device {
     pub name: String,
-    pub uuid: String,
-    pub usbmuxd_device: UsbmuxdDevice,
+    pub udid: String,
+    pub device_id: u32,
+    pub usbmuxd_device: Option<UsbmuxdDevice>,
 }
 
 impl Device {
@@ -41,8 +42,9 @@ impl Device {
         
         Device {
             name,
-            uuid: usbmuxd_device.udid.clone(),
-            usbmuxd_device 
+            udid: usbmuxd_device.udid.clone(),
+            device_id: usbmuxd_device.device_id.clone(),
+            usbmuxd_device: Some(usbmuxd_device),
         }
     }
     
@@ -55,12 +57,16 @@ impl Device {
     }
 
     pub async fn install_pairing_record(&self, identifier: &String, path: &str) -> Result<(), Error> {
+        if self.usbmuxd_device.is_none() {
+            return Err(Error::Other("Device is not connected via USB".to_string()));
+        }
+
         let mut usbmuxd = UsbmuxdConnection::default().await?;
 
-        let mut pairing_file = usbmuxd.get_pair_record(&self.uuid).await?;
-        pairing_file.udid = Some(self.uuid.clone());
+        let mut pairing_file = usbmuxd.get_pair_record(&self.udid).await?;
+        pairing_file.udid = Some(self.udid.clone());
 
-        let provider = self.usbmuxd_device.to_provider(UsbmuxdAddr::default(), HOUSE_ARREST_LABEL);
+        let provider = self.usbmuxd_device.clone().unwrap().to_provider(UsbmuxdAddr::default(), HOUSE_ARREST_LABEL);
         let hc = HouseArrestClient::connect(&provider).await?;
         let mut ac = hc.vend_documents(identifier.clone()).await?;
         let mut f = ac.open(path, AfcFopenMode::Wr).await?;
@@ -75,7 +81,11 @@ impl Device {
         F: FnMut(i32) -> Fut + Send + Clone + 'static,
         Fut: std::future::Future<Output = ()> + Send,
     {
-        let provider = self.usbmuxd_device.to_provider(
+        if self.usbmuxd_device.is_none() {
+            return Err(Error::Other("Device is not connected via USB".to_string()));
+        }
+
+        let provider = self.usbmuxd_device.clone().unwrap().to_provider(
             UsbmuxdAddr::from_env_var().unwrap_or_default(),
             INSTALLATION_LABEL,
         );
@@ -99,6 +109,59 @@ impl Device {
 
         Ok(())
     }
+
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    pub async fn install_app_mac(&self, app_path: &PathBuf) -> Result<(), Error>{
+        use std::env;
+        use tokio::fs;
+        use uuid::Uuid;
+
+        let stage_dir = env::temp_dir().join(format!("plume_mac_stage_{}", Uuid::new_v4().to_string().to_uppercase()));
+        let app_name = app_path.file_name().ok_or(Error::Other("Invalid app path".to_string()))?;
+        
+        // Create the outer app directory (e.g., LiveContainer.app)
+        let outer_app_dir = stage_dir.join(app_name);
+        let wrapper_dir = outer_app_dir.join("Wrapper");
+        
+        // Create Wrapper directory
+        fs::create_dir_all(&wrapper_dir).await?;
+        
+        // Copy original app into Wrapper/
+        let wrapped_app_path = wrapper_dir.join(app_name);
+        Self::copy_dir_recursively(app_path, &wrapped_app_path).await?;
+
+        // Create WrappedBundle symlink pointing to Wrapper/LiveContainer.app
+        let wrapped_bundle_path = outer_app_dir.join("WrappedBundle");
+        fs::symlink(PathBuf::from("Wrapper").join(app_name), &wrapped_bundle_path).await?;
+        
+        // Move to /Applications
+        let applications_dir = PathBuf::from("/Applications").join(app_name);
+        fs::rename(&outer_app_dir, &applications_dir).await?;
+
+        Ok(())
+    }
+
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    async fn copy_dir_recursively(src: &PathBuf, dst: &PathBuf) -> Result<(), Error> {
+        use tokio::fs;
+        
+        fs::create_dir_all(dst).await?;
+        let mut entries = fs::read_dir(src).await?;
+        
+        while let Some(entry) = entries.next_entry().await? {
+            let file_type = entry.file_type().await?;
+            let src_path = entry.path();
+            let dst_path = dst.join(entry.file_name());
+            
+            if file_type.is_dir() {
+                Box::pin(Self::copy_dir_recursively(&src_path, &dst_path)).await?;
+            } else {
+                fs::copy(&src_path, &dst_path).await?;
+            }
+        }
+        
+        Ok(())
+    }
 }
 
 impl fmt::Display for Device {
@@ -106,12 +169,27 @@ impl fmt::Display for Device {
         write!(
             f,
             "[{}] {}",
-            match &self.usbmuxd_device.connection_type {
-                Connection::Usb => "USB",
-                Connection::Network(_) => "WiFi",
-                Connection::Unknown(_) => "Unknown",
+            match &self.usbmuxd_device {
+                Some(device) => match &device.connection_type {
+                    Connection::Usb => "USB",
+                    Connection::Network(_) => "WiFi",
+                    Connection::Unknown(_) => "Unknown",
+                },
+                None => "LOCAL",
             },
             self.name
         )
     }
+}
+
+pub async fn get_device_for_id(device_id: &str) -> Result<Device, Error> {
+    let mut usbmuxd = UsbmuxdConnection::default().await?;
+    let usbmuxd_device = usbmuxd
+        .get_devices()
+        .await?
+        .into_iter()
+        .find(|d| d.device_id.to_string() == device_id)
+        .ok_or_else(|| Error::Other(format!("Device ID {device_id} not found")))?;
+    
+    Ok(Device::new(usbmuxd_device).await)
 }

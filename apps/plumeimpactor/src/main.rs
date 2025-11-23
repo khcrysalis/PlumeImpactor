@@ -49,3 +49,25 @@ pub fn get_data_path() -> PathBuf {
     
     dir
 }
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub fn get_mac_udid() -> Option<String> {
+    let exe_dir = env::current_exe().ok()?.parent()?.to_path_buf();
+    let udid_path = exe_dir.join("udid");
+    
+    if !udid_path.exists() {
+        return None;
+    }
+    
+    let output = std::process::Command::new(&udid_path)
+        .current_dir(&exe_dir)
+        .output()
+        .ok()?;
+    
+    if !output.status.success() {
+        return None;
+    }
+
+    let udid = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    (!udid.is_empty()).then_some(udid)
+}

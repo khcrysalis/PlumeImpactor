@@ -13,7 +13,7 @@ pub use options::{
 };
 pub use package::Package; // Package helper
 pub use bundle::{Bundle, BundleType}; // Bundle helper
-pub use device::Device; // Device helper
+pub use device::{Device, get_device_for_id}; // Device helper
 pub use signer::Signer; // Signer
 
 use thiserror::Error as ThisError;

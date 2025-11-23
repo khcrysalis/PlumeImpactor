@@ -88,13 +88,13 @@ impl PlumeFrameMessageHandler {
                 if !self
                     .usbmuxd_device_list
                     .iter()
-                    .any(|d| d.usbmuxd_device.device_id == device.usbmuxd_device.device_id)
+                    .any(|d| d.device_id == device.device_id)
                 {
                     self.usbmuxd_device_list.push(device.clone());
                     self.usbmuxd_picker_rebuild_contents();
 
                     if self.usbmuxd_device_list.len() == 1 {
-                        self.usbmuxd_picker_select_item(&device.usbmuxd_device.device_id);
+                        self.usbmuxd_picker_select_item(&device.device_id);
                     } else {
                         self.usbmuxd_picker_reconcile_selection();
                     }
@@ -106,7 +106,7 @@ impl PlumeFrameMessageHandler {
                 if let Some(index) = self
                     .usbmuxd_device_list
                     .iter()
-                    .position(|d| d.usbmuxd_device.device_id == device_id)
+                    .position(|d| d.device_id == device_id)
                 {
                     self.usbmuxd_device_list.remove(index);
                     self.usbmuxd_picker_rebuild_contents();
@@ -235,7 +235,7 @@ impl PlumeFrameMessageHandler {
         if let Some(index) = self
             .usbmuxd_device_list
             .iter()
-            .position(|d| d.usbmuxd_device.device_id == *device_id)
+            .position(|d| d.device_id == *device_id)
         {
             self.plume_frame.usbmuxd_picker.set_selection(index as u32);
             self.usbmuxd_selected_device_id = Some(device_id.to_string());
@@ -249,7 +249,7 @@ impl PlumeFrameMessageHandler {
             if let Some(new_index) = self
                 .usbmuxd_device_list
                 .iter()
-                .position(|d| d.usbmuxd_device.device_id.to_string() == selected_item)
+                .position(|d| d.device_id.to_string() == selected_item)
             {
                 self.plume_frame
                     .usbmuxd_picker

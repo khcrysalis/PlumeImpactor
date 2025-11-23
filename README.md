@@ -12,7 +12,7 @@ WIP open-source, cross-platform, and feature rich iOS/tvOS sideloading applicati
 - Simple customization options for the app.
 - Generates P12 for SideStore/AltStore to use, similar to how Altserver works.
 - Automatically populate pairing files for specific apps like SideStore, Antrag, and Protokolle.
-- *Proper* entitlement handling and can register app plugins.
+- Almost *Proper* entitlement handling and can register app plugins.
 
 ## Download
 
@@ -24,10 +24,11 @@ The project is seperated in multiple modules, all serve single or multiple uses 
 
 | Module               | Description                                                                                                                   |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `apps/plumeimpactor` | GUI interface for the crates shown below, backend using wxWidgets (with a rust ffi wrapper, wxDragon)                         |
-| `apps/plumesign`     | Simple CLI interface for signing, using `clap`.                                                                       |
+| `apps/plumeimpactor` | GUI interface for the crates shown below, backend using wxWidgets (with a rust ffi wrapper, wxDragon).                        |
+| `apps/plumesign`     | Simple CLI interface for signing, using `clap`.                                                                               |
+| `apps/udid`          | libMobileGestalt.dylib wrapper for obtaining Macs udid.                                                                       |
 | `crates/grand_slam`  | Handles all api request used for communicating with Apple developer services, along with providing auth for Apple's grandslam |
-| `crates/utils`       | Shared code between GUI and CLI, contains signing and modification logic, and helpers.  |
+| `crates/utils`       | Shared code between GUI and CLI, contains signing and modification logic, and helpers.                                        |
 
 ## Building
 
@@ -68,8 +69,7 @@ xcode-select --install
 
 #### Windows Requirements
 
-Download and install [Visual Studio 2022 Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with:
-- Desktop development with C++ workload
+- Download and install [Visual Studio 2022 Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with:
 - Windows 10/11 SDK
 
 ## Acknowledgements
@@ -81,5 +81,4 @@ Download and install [Visual Studio 2022 Build Tools](https://visualstudio.micro
 
 ## License
 
-Project is licensed under the MIT license. You can see the full details of the license [here](https://github.com/khcrysalis/PlumeImpactor/blob/main/LICENSE).
-- Some components may be licensed under different licenses, see their respective directories for details.
+Project is licensed under the MIT license. You can see the full details of the license [here](https://github.com/khcrysalis/PlumeImpactor/blob/main/LICENSE). Some components may be licensed under different licenses, see their respective directories for details.

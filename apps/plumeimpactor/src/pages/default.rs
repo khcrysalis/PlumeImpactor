@@ -1,7 +1,7 @@
 use wxdragon::prelude::*;
 
 #[cfg(not(target_os = "linux"))]
-const WELCOME_TEXT: &str = "Drop your .ipa here";
+const WELCOME_TEXT: &str = "Drag and drop your .ipa here";
 #[cfg(target_os = "linux")]
 const WELCOME_TEXT: &str = "Press 'import' and select an .ipa to get started";
 
@@ -51,6 +51,45 @@ pub fn create_default_page(frame: &Frame) -> DefaultPage {
     );
 
     sizer.add_stretch_spacer(1);
+
+    let love_sizer = BoxSizer::builder(Orientation::Horizontal).build();
+    let made_with_text = StaticText::builder(&panel)
+        .with_label("Made with 💖 from ")
+        .build();
+    let khcrysalis_link = HyperlinkCtrl::builder(&panel)
+        .with_label("SAMSAM")
+        .with_url("https://github.com/khcrysalis")
+        .with_style(HyperlinkCtrlStyle::AlignLeft | HyperlinkCtrlStyle::NoUnderline)
+        .build();
+    let separator1 = StaticText::builder(&panel)
+        .with_label(" • ")
+        .build();
+    let github_link = HyperlinkCtrl::builder(&panel)
+        .with_label("GitHub")
+        .with_url("https://github.com/khcrysalis/plumeimpactor")
+        .with_style(HyperlinkCtrlStyle::AlignLeft | HyperlinkCtrlStyle::NoUnderline)
+        .build();
+    let separator2 = StaticText::builder(&panel)
+        .with_label(" • ")
+        .build();
+    let donate_link = HyperlinkCtrl::builder(&panel)
+        .with_label("Donate")
+        .with_url("https://github.com/sponsors/khcrysalis")
+        .with_style(HyperlinkCtrlStyle::AlignLeft | HyperlinkCtrlStyle::NoUnderline)
+        .build();
+    love_sizer.add(&made_with_text, 0, SizerFlag::AlignCenterVertical, 0);
+    love_sizer.add(&khcrysalis_link, 0, SizerFlag::AlignCenterVertical, 0);
+    love_sizer.add(&separator1, 0, SizerFlag::AlignCenterVertical, 0);
+    love_sizer.add(&github_link, 0, SizerFlag::AlignCenterVertical, 0);
+    love_sizer.add(&separator2, 0, SizerFlag::AlignCenterVertical, 0);
+    love_sizer.add(&donate_link, 0, SizerFlag::AlignCenterVertical, 0);
+
+    sizer.add_sizer(
+        &love_sizer,
+        0,
+        SizerFlag::Left | SizerFlag::All,
+        15,
+    );
 
     panel.set_sizer(sizer, true);
 

@@ -4,12 +4,17 @@
 [![GitHub License](https://img.shields.io/github/license/khcrysalis/PlumeImpactor?color=%23C96FAD)](https://github.com/khcrysalis/PlumeImpactor/blob/main/LICENSE)
 [![Sponsor Me](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/khcrysalis)
 
-WIP open-source, cross-platform, and feature rich iOS/tvOS sideloading application. Supporting macOS, Linux, and Windows.
+Open-source, cross-platform, and feature rich iOS/tvOS sideloading application. Supporting macOS, Linux, and Windows.
+
+| ![Demo of app](demo.webp)   |
+| :----------------------:    |
+| Demo of sideloading a working [LiveContainer](https://github.com/LiveContainer/LiveContainer) build. |
 
 ### Features
+
 - User friendly and clean UI.
-- Sign and sideload applications to iOS with your Apple ID.
-- Sign and sideload applications to your Mac (arm)
+- Supports Linux.
+- Sign and sideload applications to iOS & Mac with your Apple ID.
 - Simple customization options for the app.
 - Generates P12 for SideStore/AltStore to use, similar to how Altserver works.
 - Automatically populate pairing files for specific apps like SideStore, Antrag, and Protokolle.

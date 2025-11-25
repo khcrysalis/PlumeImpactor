@@ -38,7 +38,7 @@ pub struct Team {
     team_agent: Option<TeamMember>,
     memberships: Vec<Membership>,
     current_team_member: TeamMember,
-    date_created: Date,
+    date_created: Option<Date>,
     xcode_free_only: bool,
     team_provisioning_settings: TeamProvisionSettings,
 }
@@ -52,7 +52,7 @@ struct Membership {
     status: String,
     in_ios_reset_window: Option<bool>,
     in_renewal_window: bool,
-    date_start: Date,
+    date_start: Option<Date>,
     platform: String,
     delete_devices_on_expiry: bool,
 }

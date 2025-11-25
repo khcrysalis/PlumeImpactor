@@ -10,8 +10,6 @@ impl Account {
     pub async fn send_2fa_to_devices(&self) -> Result<LoginState, Error> {
         let headers = self.build_2fa_headers(false).await;
         
-        println!("2FA Headers: {:?}", headers);
-
         let res = self
             .client
             .get("https://gsa.apple.com/auth/verify/trusteddevice")
@@ -20,9 +18,6 @@ impl Account {
             .await?;
 
         let status_code = res.status();
-        let response_text = res.text().await?;
-        println!("2FA Response Text: {}", response_text);
-        println!("2FA send status: {}", status_code);
 
         if !status_code.is_success() {
             return Err(Error::AuthSrpWithMessage(status_code.as_u16() as i64, "Failed to send 2FA to devices".to_string()));
@@ -34,8 +29,6 @@ impl Account {
     pub async fn send_sms_2fa_to_devices(&self, phone_id: u32) -> Result<LoginState, Error> {
         let headers = self.build_2fa_headers(true).await;
         
-        println!("SMS 2FA Headers: {:?}", headers);
-
         let body = VerifyBody {
             phone_number: PhoneNumber { id: phone_id },
             mode: "sms".to_string(),
@@ -44,16 +37,13 @@ impl Account {
 
         let res = self
             .client
-            .put("https://gsa.apple.com/auth/verify/phone/")
+            .put("https://gsa.apple.com/auth/verify/phone")
             .headers(headers)
             .json(&body)
             .send()
             .await?;
 
         let status_code = res.status();
-        let response_text = res.text().await?;
-        println!("SMS 2FA Response Text: {}", response_text);
-        println!("SMS 2FA send status: {}", status_code);
 
         if !status_code.is_success() {
             return Err(Error::AuthSrpWithMessage(status_code.as_u16() as i64, "Failed to send SMS 2FA to devices".to_string()));
@@ -159,7 +149,19 @@ impl Account {
                 "Content-Type",
                 HeaderValue::from_str("text/x-xml-plist").unwrap(),
             );
-            headers.insert("Accept", HeaderValue::from_str("text/x-xml-plist").unwrap());
+            headers.insert(
+                "Accept", 
+                HeaderValue::from_str("text/x-xml-plist").unwrap()
+            );
+        } else {
+            headers.insert(
+                "Content-Type",
+                HeaderValue::from_str("application/json").unwrap(),
+            );
+            headers.insert(
+                "Accept",
+                HeaderValue::from_str("application/json").unwrap(),
+            );
         }
         headers.insert("User-Agent", HeaderValue::from_str("Xcode").unwrap());
         headers.insert("Accept-Language", HeaderValue::from_str("en-us").unwrap());

@@ -34,23 +34,70 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      # Install system headers required for compilation.
+      # Note: Actual runtime libraries will be bundled by linuxdeploy in a later step.
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install libgtk-3-dev libpng-dev libjpeg-dev libgl1-mesa-dev libglu1-mesa-dev libxkbcommon-dev libexpat1-dev libtiff-dev
+          sudo apt-get install libgtk-3-dev libpng-dev libjpeg-dev libgl1-mesa-dev libglu1-mesa-dev libxkbcommon-dev libexpat1-dev libtiff-dev imagemagick
 
-      - name: Build Dependencies 
+      - name: Build Dependencies
         run: |
           cargo install patch-crate
           cargo fetch --locked || true
           cargo patch-crate --force
-          cargo install cargo-bundle
           mkdir -p build/out
 
-      - name: Build & Bundle (Linux)
+      - name: Build Binary
+        run: cargo build --bin ${{ env.BINARY_NAME }} --release
+
+      - name: Generate Runtime Metadata
         run: |
-          cargo bundle --bin ${{ env.BINARY_NAME }} --package ${{ env.BINARY_NAME }} --release --format appimage
-          cp -R target/release/bundle/appimage/*.AppImage build/out/
+          # Create a compliant .desktop entry required by linuxdeploy.
+          # This is necessary because we are no longer using cargo-bundle to generate metadata.
+          cat > ${{ env.BUNDLE_NAME }}.desktop <<EOF
+          [Desktop Entry]
+          Type=Application
+          Name=${{ env.BUNDLE_NAME }}
+          Exec=${{ env.BINARY_NAME }}
+          Icon=${{ env.BUNDLE_NAME }}
+          Categories=Utility;
+          Terminal=false
+          EOF
+          
+          # Resolve application icon.
+          # linuxdeploy requires a valid icon file. We attempt to locate one in standard
+          # directories. If unavailable, a generic placeholder is downloaded to prevent build failure.
+          if [ -f "package/linux/icon.png" ]; then
+            cp "package/linux/icon.png" "${{ env.BUNDLE_NAME }}.png"
+          elif [ -f "assets/icon.png" ]; then
+            cp "assets/icon.png" "${{ env.BUNDLE_NAME }}.png"
+          else
+            wget -O "${{ env.BUNDLE_NAME }}.png" https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Rust_programming_language_black_logo.svg/1024px-Rust_programming_language_black_logo.svg.png
+          fi
+
+          # Resize icon to 512x512.
+          # linuxdeploy fails if the icon is larger than 512x512. We use imagemagick (convert)
+          # to ensure the icon is within valid bounds.
+          convert "${{ env.BUNDLE_NAME }}.png" -resize 512x512 "${{ env.BUNDLE_NAME }}.png"
+
+      - name: Bundle with LinuxDeploy
+        run: |
+          # Download and prepare linuxdeploy
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+
+          # Generate the AppImage.
+          # This tool automatically detects shared library dependencies (e.g., libjpeg.so.8)
+          # and bundles them into the AppImage, ensuring portability across Linux distributions.
+          ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \
+            --appdir AppDir \
+            --executable target/release/${{ env.BINARY_NAME }} \
+            --desktop-file ${{ env.BUNDLE_NAME }}.desktop \
+            --icon-file ${{ env.BUNDLE_NAME }}.png \
+            --output appimage
+
+          mv *.AppImage build/out/
 
       - name: Upload Bundles
         uses: actions/upload-artifact@v4
@@ -69,7 +116,7 @@ jobs:
       - name: Setup Windows MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Build Dependencies 
+      - name: Build Dependencies
         run: |
           cargo install patch-crate
           cargo fetch --locked || true
@@ -114,7 +161,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Build Dependencies 
+      - name: Build Dependencies
         run: |
           cargo install patch-crate
           cargo fetch --locked || true
@@ -194,6 +241,7 @@ jobs:
             --icon-size 100 \
             --icon ${{ env.BUNDLE_NAME }}.app 160 155 \
             --hide-extension "${{ env.BUNDLE_NAME }}.app" \
+            --app-drop-link 350 155 \
             --app-drop-link 350 155 \
             build/out/${{ env.BUNDLE_NAME }}.dmg build/dmg
 

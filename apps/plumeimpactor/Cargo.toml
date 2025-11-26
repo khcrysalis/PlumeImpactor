@@ -7,9 +7,6 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
-[package.metadata.patch]
-crates = ["wxdragon"]
-
 [dependencies]
 idevice.workspace = true
 tokio.workspace = true
@@ -20,7 +17,7 @@ futures.workspace = true
 plume_core = { path = "../../crates/core", features = ["vendored-botan"] }
 plume_utils = { path = "../../crates/utils" }
 
-wxdragon = { git = "https://github.com/AllenDang/wxDragon", rev = "d45edc", package = "wxdragon" }
+wxdragon = { git = "https://github.com/PlumeImpactor/wxDragon", branch = "main", package = "wxdragon" }
 rustls = { version = "0.23.32", features = ["ring"] }
 
 keyring = { version = "3.6.3", default-features = false, features = ["windows-native", "apple-native", "linux-native"] }

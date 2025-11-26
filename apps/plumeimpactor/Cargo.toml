@@ -17,7 +17,7 @@ futures.workspace = true
 plume_core = { path = "../../crates/core", features = ["vendored-botan"] }
 plume_utils = { path = "../../crates/utils" }
 
-wxdragon = { git = "https://github.com/PlumeImpactor/wxDragon", branch = "main", package = "wxdragon" }
+wxdragon = { git = "https://github.com/PlumeImpactor/wxDragon", rev = "7d407ce", package = "wxdragon" }
 rustls = { version = "0.23.32", features = ["ring"] }
 
 keyring = { version = "3.6.3", default-features = false, features = ["windows-native", "apple-native", "linux-native"] }

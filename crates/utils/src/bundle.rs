@@ -177,12 +177,27 @@ fn collect_embeded_bundles_from_dir(dir: &PathBuf) -> Result<Vec<Bundle>, Error>
             false
         }
     }
+    
+    fn is_dylib_file(name: &str) -> bool {
+        name.ends_with(".dylib")
+    }
 
     for entry in fs::read_dir(dir)? {
         let entry = entry.map_err(Error::Io)?;
         let path = entry.path();
 
         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            // Handle dylib files as bundles (even though they don't have Info.plist)
+            if path.is_file() && is_dylib_file(name) {
+                // Create a pseudo-bundle for dylib files
+                bundles.push(Bundle {
+                    dir: path,
+                    _type: BundleType::Dylib,
+                    info_plist_file: PathBuf::new(), // Empty for dylibs
+                });
+                continue;
+            }
+            
             if is_bundle_dir(name) {
                 if let Ok(bundle) = Bundle::new(&path) {
                     bundles.push(bundle.clone());
@@ -212,6 +227,7 @@ pub enum BundleType {
     App,
     AppExtension,
     Framework,
+    Dylib,
     Unknown
 }
 
@@ -221,7 +237,18 @@ impl BundleType {
             "app" => Some(BundleType::App),
             "appex" => Some(BundleType::AppExtension),
             "framework" => Some(BundleType::Framework),
+            "dylib" => Some(BundleType::Dylib),
             _ => Some(BundleType::Unknown),
         }
+    }
+    
+    /// Returns true if this bundle type should be signed with entitlements
+    pub fn should_have_entitlements(&self) -> bool {
+        matches!(self, BundleType::App | BundleType::AppExtension)
+    }
+    
+    /// Returns true if this bundle type should be code signed
+    pub fn should_be_signed(&self) -> bool {
+        !matches!(self, BundleType::Unknown)
     }
 }

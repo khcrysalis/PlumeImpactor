@@ -83,6 +83,17 @@ impl MobileProvision {
             );
         }
 
+        // this is granted by default.
+        if let Some(Value::Array(groups)) = self.entitlements.get_mut("keychain-access-groups") {
+            groups.retain(|group| {
+                if let Value::String(s) = group {
+                    !s.starts_with("com.apple.token")
+                } else {
+                    true
+                }
+            });
+        }
+
         let new_team_id = self
             .entitlements
             .get("com.apple.developer.team-identifier")

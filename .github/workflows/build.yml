@@ -253,6 +253,12 @@ jobs:
       - name: Codesign
         run: |
           codesign --deep --force --options runtime \
+            --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/Frameworks/Sparkle.framework/Resources/Autoupdate.app
+          codesign --deep --force --options runtime \
+            --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/Frameworks/Sparkle.framework
+          codesign --deep --force --options runtime \
+            --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/MacOS/${{ env.BINARY_NAME }}
+          codesign --deep --force --options runtime \
             --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/${{ env.BUNDLE_NAME }}.app
 
       - name: Create DMG

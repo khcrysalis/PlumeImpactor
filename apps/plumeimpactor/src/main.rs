@@ -24,8 +24,8 @@ async fn main() {
         let updater = Updater::new();
         #[cfg(target_os = "windows")]
         let updater = Updater::new(
-            "https://github.com/khcrysalis/PlumeImpactor/releases/latest/download/appcast-win.xml",
-            "Software\\PlumeImpactor",
+            "https://github.com/khcrysalis/PlumeImpactor/releases/latest/download/appcast-win.xml".into(),
+            None,
         );
         
         updater.check_for_updates();

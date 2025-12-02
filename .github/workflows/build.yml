@@ -132,7 +132,7 @@ jobs:
           curl -L -o WinSparkle-0.8.1.zip https://github.com/vslavik/winsparkle/releases/download/v0.8.1/WinSparkle-0.8.1.zip
           unzip WinSparkle-0.8.1.zip -d WinSparkle
           "${{ secrets.SPARKLE_PRIV_KEY_WIN }}" | Out-File -Encoding ascii dsa_priv.pem
-          $SIGNATURE = & .\WinSparkle\bin\sign_update.bat build/out/${{ env.BINARY_NAME }}-setup.exe dsa_priv.pem
+          $SIGNATURE = ./WinSparkle/WinSparkle-0.8.1/bin/sign_update.bat build/out/${{ env.BINARY_NAME }}-setup.exe dsa_priv.pem
           $VERSION = (Select-String '^version *= *' Cargo.toml | Select-Object -First 1).Line -replace 'version *= *"(.+)"','$1'
           $DATE = Get-Date -Format "ddd, dd MMM yyyy HH:mm:ss K"
           $xml = @"

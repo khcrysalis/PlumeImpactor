@@ -50,6 +50,7 @@ Section "Install"
     SetOutPath "$INSTDIR"
     File "${APPEXE}"
     File "WinSparkle.dll"
+    File "dsa_pub.pem"
 
     ; Start Menu entries
     CreateDirectory "$SMPROGRAMS\${APPNAME}"

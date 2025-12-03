@@ -3019,6 +3019,7 @@ dependencies = [
  "plume_core",
  "plume_utils",
  "rustls 0.23.32",
+ "sparkle-updater",
  "thiserror 2.0.16",
  "tokio",
  "uuid",
@@ -4088,6 +4089,23 @@ dependencies = [
  "hkdf",
  "rand_core 0.6.4",
  "sha2",
+]
+
+[[package]]
+name = "sparkle-sys"
+version = "0.1.0"
+source = "git+https://github.com/PlumeImpactor/sparkle-updater?rev=3d39e96#3d39e9679b2495e8266037300acc5bcbc96c021b"
+dependencies = [
+ "objc",
+]
+
+[[package]]
+name = "sparkle-updater"
+version = "0.1.0"
+source = "git+https://github.com/PlumeImpactor/sparkle-updater?rev=3d39e96#3d39e9679b2495e8266037300acc5bcbc96c021b"
+dependencies = [
+ "sparkle-sys",
+ "winsparkle-sys",
 ]
 
 [[package]]
@@ -5291,6 +5309,11 @@ checksum = "b68db261ef59e9e52806f688020631e987592bd83619edccda9c47d42cde4f6c"
 dependencies = [
  "toml 0.5.11",
 ]
+
+[[package]]
+name = "winsparkle-sys"
+version = "0.1.0"
+source = "git+https://github.com/PlumeImpactor/sparkle-updater?rev=3d39e96#3d39e9679b2495e8266037300acc5bcbc96c021b"
 
 [[package]]
 name = "wit-bindgen"

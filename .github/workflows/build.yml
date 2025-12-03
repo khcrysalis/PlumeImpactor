@@ -125,6 +125,36 @@ jobs:
           choco install nsis.portable
           makensis build/nsis/installer.nsi
           mv build/nsis/PlumeInstaller.exe build/out/${{ env.BINARY_NAME }}-setup.exe
+          
+      - name: Create AppCast
+        shell: pwsh
+        run: |
+          curl -L -o WinSparkle-0.8.1.zip https://github.com/vslavik/winsparkle/releases/download/v0.8.1/WinSparkle-0.8.1.zip
+          unzip WinSparkle-0.8.1.zip -d WinSparkle
+          "${{ secrets.SPARKLE_PRIV_KEY_WIN }}" | Out-File -Encoding ascii dsa_priv.pem
+          $SIGNATURE = ./WinSparkle/WinSparkle-0.8.1/bin/sign_update.bat build/out/${{ env.BINARY_NAME }}-setup.exe dsa_priv.pem
+          $VERSION = (Select-String '^version *= *' Cargo.toml | Select-Object -First 1).Line -replace 'version *= *"(.+)"','$1'
+          $DATE = Get-Date -Format "ddd, dd MMM yyyy HH:mm:ss K"
+          $xml = @"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+          <channel>
+          <title>PlumeImpactor</title>
+          <description>Most recent updates to PlumeImpactor</description>
+          <language>en</language>
+          <item>
+              <title>Version $VERSION</title>
+              <sparkle:version>$VERSION</sparkle:version>
+              <pubDate>$DATE</pubDate>
+              <enclosure url="https://github.com/khcrysalis/PlumeImpactor/releases/latest/download/${{ env.BINARY_NAME }}-setup.exe"
+                sparkle:dsaSignature="$SIGNATURE"
+                length="0"
+                type="application/octet-stream" />
+          </item>
+          </channel>
+          </rss>
+          "@
+          $xml | Out-File -Encoding utf8 build/out/appcast.xml
 
       - name: Upload Bundles
         uses: actions/upload-artifact@v4
@@ -209,6 +239,11 @@ jobs:
       - name: Bundle
         run: |
           mkdir -p build/dmg
+          # Ensure Info.plist is valid before copying
+          plutil -lint package/macos/${{ env.BUNDLE_NAME }}.app/Contents/Info.plist
+          VERSION=$(grep '^version *= *' Cargo.toml | head -n1 | sed 's/version *= *"\(.*\)"/\1/')
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" package/macos/${{ env.BUNDLE_NAME }}.app/Contents/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" package/macos/${{ env.BUNDLE_NAME }}.app/Contents/Info.plist
           cp -R package/macos/${{ env.BUNDLE_NAME }}.app build/dmg/${{ env.BUNDLE_NAME }}.app
           mkdir -p build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/MacOS
           mv build/universal/${{ env.BINARY_NAME }} build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/MacOS/${{ env.BINARY_NAME }}
@@ -217,6 +252,12 @@ jobs:
 
       - name: Codesign
         run: |
+          codesign --deep --force --options runtime \
+            --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/Frameworks/Sparkle.framework/Resources/Autoupdate.app
+          codesign --deep --force --options runtime \
+            --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/Frameworks/Sparkle.framework
+          codesign --deep --force --options runtime \
+            --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/MacOS/${{ env.BINARY_NAME }}
           codesign --deep --force --options runtime \
             --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/${{ env.BUNDLE_NAME }}.app
 
@@ -239,8 +280,20 @@ jobs:
           xcrun notarytool submit build/out/${{ env.BUNDLE_NAME }}.dmg --apple-id "${{ secrets.APPLE_ID_EMAIL }}" --password "${{ secrets.APPLE_ID_PASSWORD }}" --team-id "${{ secrets.APPLE_ID_TEAM }}" --wait
           xcrun stapler staple build/out/${{ env.BUNDLE_NAME }}.dmg
 
+      - name: Setup Sparkle
+        id: get_version
+        run: |
+          curl -L -o Sparkle-2.8.1.tar.xz https://github.com/sparkle-project/Sparkle/releases/download/2.8.1/Sparkle-2.8.1.tar.xz
+          tar -xJf Sparkle-2.8.1.tar.xz
+          chmod +x ./bin/generate_appcast
+          echo ${{ secrets.SPARKLE_PRIV_KEY_MAC }} > sparkle_priv_key
+          ./bin/generate_keys -f ./sparkle_priv_key
+          ./bin/generate_appcast --download-url-prefix https://github.com/khcrysalis/PlumeImpactor/releases/latest/download/ build/out/
+
       - name: Upload Universal DMG
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-macos-universal
-          path: build/out/${{ env.BUNDLE_NAME }}.dmg
+          path: |
+            build/out/${{ env.BUNDLE_NAME }}.dmg
+            build/out/appcast.xml

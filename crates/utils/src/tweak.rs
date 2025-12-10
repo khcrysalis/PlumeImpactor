@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use plume_core::MachO;
 use uuid::Uuid;
 
 use crate::{Bundle, Error, PlistInfoTrait, copy_dir_recursively};
@@ -27,7 +28,8 @@ impl Tweak {
         if !file_name.ends_with(".deb") 
             && !file_name.ends_with(".dylib") 
             && !file_name.ends_with(".framework")
-            && !file_name.ends_with(".bundle") {
+            && !file_name.ends_with(".bundle")
+            && !file_name.ends_with(".appex") {
             return Err(Error::UnsupportedFileType(file_name.to_string()));
         }
 
@@ -52,12 +54,13 @@ impl Tweak {
             self.install_framework(&self.path).await?;
         } else if file_name.ends_with(".bundle") {
             self.install_bundle(&self.path).await?;
+        } else if file_name.ends_with(".appex") {
+            self.install_appex(&self.path).await?;
         } else if file_name.ends_with(".dylib") {
             self.install_dylib(&self.path).await?;
         }
 
-        // // Cleanup
-        // tokio::fs::remove_dir_all(&self.stage_dir).await.ok();
+        tokio::fs::remove_dir_all(&self.stage_dir).await.ok();
 
         Ok(())
     }
@@ -160,6 +163,8 @@ impl Tweak {
                                 tweak.install_framework(&path).await?;
                             } else if name.ends_with(".bundle") {
                                 tweak.install_bundle(&path).await?;
+                            } else if name.ends_with(".appex") {
+                                tweak.install_appex(&path).await?;
                             } else {
                                 // Recursively scan subdirectories
                                 scan_recursive(tweak, &path).await?;
@@ -183,8 +188,9 @@ impl Tweak {
         let dest = frameworks_dir.join(dylib_name);
         
         tokio::fs::copy(dylib_path, &dest).await?;
-
-        self.inject_dylib(&dest).await
+        
+        Self::patch_cydiasubstrate(&dest);
+        self.inject_dylib(&dest, false).await
     }
 
     async fn install_framework(&self, framework_path: &Path) -> Result<(), Error> {
@@ -196,11 +202,13 @@ impl Tweak {
         
         copy_dir_recursively(&framework_path, &dest).await?;
         
-        // Inject the framework's main dylib
-        if let Some(exec_name) = framework_name.to_str().and_then(|n| n.strip_suffix(".framework")) {
-            let exec_path = dest.join(exec_name);
-            if exec_path.exists() {
-                self.inject_dylib(&exec_path).await?;
+        if let Ok(bundle) = Bundle::new(&dest) {
+            if let Some(exec_name) = bundle.get_executable() {
+                let exec_path = dest.join(exec_name);
+                if exec_path.exists() {
+                    Self::patch_cydiasubstrate(&exec_path);
+                    self.inject_dylib(&exec_path, true).await?;
+                }
             }
         }
 
@@ -214,7 +222,17 @@ impl Tweak {
         copy_dir_recursively(bundle_path, &dest).await
     }
 
-    async fn inject_dylib(&self, dylib_path: &Path) -> Result<(), Error> {
+    async fn install_appex(&self, appex_path: &Path) -> Result<(), Error> {
+        let plugins_dir = self.app_bundle.join("PlugIns");
+        tokio::fs::create_dir_all(&plugins_dir).await?;
+        
+        let appex_name = appex_path.file_name().ok_or(Error::TweakInvalidPath)?;
+        let dest = plugins_dir.join(appex_name);
+        
+        copy_dir_recursively(appex_path, &dest).await
+    }
+
+    async fn inject_dylib(&self, dylib_path: &Path, is_framework: bool) -> Result<(), Error> {
         let bundle = Bundle::new(&self.app_bundle)?;
         let executable_name = bundle.get_executable()
             .ok_or(Error::BundleInfoPlistMissing)?;
@@ -224,23 +242,32 @@ impl Tweak {
             return Err(Error::BundleInfoPlistMissing);
         }
 
-        // Calculate @executable_path relative path
-        let relative = dylib_path.strip_prefix(&self.app_bundle)
-            .map_err(|_| Error::TweakInvalidPath)?;
-        
-        let mut inject_path = format!("@executable_path/{}", relative.display());
-        
-        // Handle CydiaSubstrate → ElleKit compatibility
-        // inject_path = inject_path.replace(
-        //     "/Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate",
-        //     "@rpath/CydiaSubstrate.framework/CydiaSubstrate"
-        // );
-        
-        // TODO: Implement actual dylib injection into Mach-O binary
-        // let _ = (executable_path, inject_path);
+        let inject_path = if is_framework {
+            let components: Vec<_> = dylib_path.components().rev().take(2).collect();
+            format!("@rpath/{}/{}", 
+                components[1].as_os_str().to_str().ok_or(Error::TweakInvalidPath)?,
+                components[0].as_os_str().to_str().ok_or(Error::TweakInvalidPath)?)
+        } else {
+            let file_name = dylib_path.file_name()
+                .and_then(|f| f.to_str())
+                .ok_or(Error::TweakInvalidPath)?;
+            format!("@rpath/{}", file_name)
+        };
 
-        println!("Injecting {:?} into {:?}", inject_path, executable_path.display());
+        let mut macho = MachO::new(&executable_path)?;
+        macho.add_dylib(&inject_path)?;
+        macho.write_changes()?;
 
         Ok(())
+    }
+
+    fn patch_cydiasubstrate(binary_path: &Path) {
+        if let Ok(mut macho) = MachO::new(binary_path) {
+            let _ = macho.replace_dylib(
+                "/Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate",
+                "@rpath/CydiaSubstrate.framework/CydiaSubstrate"
+            );
+            let _ = macho.write_changes();
+        }
     }
 }

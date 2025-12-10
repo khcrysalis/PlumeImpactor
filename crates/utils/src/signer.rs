@@ -12,13 +12,7 @@ use plume_core::{
 };
 
 use crate::{
-    Bundle,
-    BundleType,
-    Error,
-    PlistInfoTrait,
-    SignerMode,
-    SignerApp,
-    SignerOptions,
+    Bundle, BundleType, Error, PlistInfoTrait, SignerApp, SignerMode, SignerOptions,
 };
 
 pub struct Signer {
@@ -76,7 +70,9 @@ impl Signer {
 
         let identifier = bundle.get_bundle_identifier();
 
-        if self.options.mode != SignerMode::Export && self.options.custom_identifier.is_none() {
+        if self.options.mode != SignerMode::Adhoc
+            && self.options.custom_identifier.is_none()
+        {
             if let (Some(identifier), Some(team_id)) = (identifier.as_ref(), team_id.as_ref()) {
                 self.options.custom_identifier = Some(format!("{identifier}.{team_id}"));
             }
@@ -90,8 +86,7 @@ impl Signer {
             }
         }
 
-        if
-            self.options.app == SignerApp::SideStore
+        if self.options.app == SignerApp::SideStore
             || self.options.app == SignerApp::AltStore
             || self.options.app == SignerApp::LiveContainerAndSideStore
         {
@@ -219,6 +214,7 @@ impl Signer {
 
         for bundle in &bundles {
             Self::sign_single_bundle(
+                self,
                 bundle, 
                 &self.provisioning_files,
                 settings.clone(),
@@ -236,6 +232,7 @@ impl Signer {
     }
 
     fn sign_single_bundle(
+        &self,
         bundle: &Bundle,
         provisioning_files: &[MobileProvision],
         mut settings: SigningSettings<'_>,
@@ -249,7 +246,8 @@ impl Signer {
 
         // Only Apps and AppExtensions should have entitlements from provisioning profiles
         // Dylibs, frameworks, and other components should be signed without entitlements
-        if bundle.bundle_type().should_have_entitlements() && !provisioning_files.is_empty() {
+        // Skip provisioning profile handling for adhoc signing
+        if self.options.mode != SignerMode::Adhoc && bundle.bundle_type().should_have_entitlements() && !provisioning_files.is_empty() {
             let mut matched_prov = None;
 
             for prov in provisioning_files {
@@ -282,7 +280,10 @@ impl Signer {
             }
         }
 
-        settings.set_entitlements_xml(SettingsScope::Main, entitlements_xml)?;
+        if self.options.mode != SignerMode::Adhoc {
+            settings.set_entitlements_xml(SettingsScope::Main, entitlements_xml)?;
+        }
+
         UnifiedSigner::new(settings).sign_path_in_place(bundle.bundle_dir())?;
 
         Ok(())

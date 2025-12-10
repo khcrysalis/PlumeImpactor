@@ -12,6 +12,7 @@ pub use options::{
     SignerFeatures, // Feature support options
     SignerEmbedding, // Embedding options
     SignerMode, // Signing mode
+    SignerInstallMode, // Installation mode
     SignerApp // Supported app types
 };
 pub use package::Package; // Package helper

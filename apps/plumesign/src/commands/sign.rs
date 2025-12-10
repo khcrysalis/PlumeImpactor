@@ -5,7 +5,7 @@ use anyhow::Result;
 
 use plume_core::{CertificateIdentity, MobileProvision};
 use plume_shared::get_data_path;
-use plume_utils::{Bundle, Signer, SignerOptions};
+use plume_utils::{Bundle, Signer, SignerMode, SignerOptions};
 
 use crate::commands::account::{get_authenticated_account, teams};
 
@@ -38,7 +38,7 @@ pub struct SignArgs {
 }
 
 pub async fn execute(args: SignArgs) -> Result<()> {
-    let options = SignerOptions {
+    let mut options = SignerOptions {
         custom_identifier: args.bundle_identifier,
         custom_name: args.name,
         custom_version: args.version,
@@ -46,7 +46,6 @@ pub async fn execute(args: SignArgs) -> Result<()> {
     };
     
     let bundle = Bundle::new(&args.bundle)?;
-
 
     if let Some(tweak_files) = args.tweaks {
         println!("Applying tweaks: {:?}", tweak_files);
@@ -59,12 +58,15 @@ pub async fn execute(args: SignArgs) -> Result<()> {
     
     let (mut signer, team_id_opt) = if args.adhoc {
         println!("Using ad-hoc signing (no certificate)");
+        options.mode = SignerMode::Adhoc;
         (Signer::new(None, options), None)
     } else if let Some(ref pem_files) = args.pem_files {
         println!("Using PEM files: {:?}", pem_files);
         let cert_identity = CertificateIdentity::new_with_paths(
             Some(pem_files.clone())
         ).await?;
+
+        options.mode = SignerMode::Pem;
         (Signer::new(Some(cert_identity), options), None)
     } else {
         println!("No signing method specified, attempting to use saved Apple ID credentials...");
@@ -81,7 +83,8 @@ pub async fn execute(args: SignArgs) -> Result<()> {
             None,
             &team_id,
         ).await?;
-        
+
+        options.mode = SignerMode::Pem;
         (Signer::new(Some(cert_identity), options), Some((session, team_id)))
     };
 

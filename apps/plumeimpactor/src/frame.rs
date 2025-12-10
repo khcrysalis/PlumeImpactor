@@ -15,7 +15,7 @@ use idevice::{
 };
 
 use plume_shared::{AccountCredentials, get_data_path};
-use plume_utils::{Device, Package, PlistInfoTrait, Signer, SignerMode, get_device_for_id};
+use plume_utils::{Device, Package, PlistInfoTrait, Signer, SignerInstallMode, get_device_for_id};
 
 use wxdragon::prelude::*;
 use futures::StreamExt;
@@ -382,7 +382,7 @@ impl PlumeFrame {
                         sender_clone.send(PlumeFrameMessage::WorkUpdated("Ensuring current device is registered...".to_string())).ok();
 
                         let device = if device_id == u32::MAX.to_string() {
-                            signer_settings.mode = SignerMode::SignAndInstallMacOS;
+                            signer_settings.install_mode = SignerInstallMode::InstallMac;
                             
                             #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
                             {
@@ -400,6 +400,7 @@ impl PlumeFrame {
                                 return Err("Mac installation not supported on this platform".to_string());
                             }
                         } else {
+                            signer_settings.install_mode = SignerInstallMode::Install;
                             get_device_for_id(&device_id).await.map_err(|_| "Selected device not found".to_string())?
                         };
                         
@@ -468,40 +469,44 @@ impl PlumeFrame {
                         signer.sign_bundle(&bundle).await
                             .map_err(|e| format!("Failed to sign bundle: {}", e))?;
 
-                        if signer_settings.mode == SignerMode::SignAndInstallMacOS {
-                            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-                            device.install_app_mac(&bundle.bundle_dir()).await
-                                .map_err(|e| format!("Failed to install mac app: {}", e))?;
-                            
-                            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-                            return Err("Mac installation not supported on this platform".to_string());
-                        } else {
-                            let progress_callback = {
-                                let sender = sender_clone.clone();
-                                move |progress: i32| {
-                                    let sender = sender.clone();
-                                    async move {
-                                        sender.send(PlumeFrameMessage::WorkUpdated(format!("Installing... {}%", progress))).ok();
+
+                        match signer_settings.install_mode {
+                            SignerInstallMode::InstallMac => {
+                                #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+                                device.install_app_mac(&bundle.bundle_dir()).await
+                                    .map_err(|e| format!("Failed to install mac app: {}", e))?;
+                            }
+                            SignerInstallMode::Install => {
+                                let progress_callback = {
+                                    let sender = sender_clone.clone();
+                                    move |progress: i32| {
+                                        let sender = sender.clone();
+                                        async move {
+                                            sender.send(PlumeFrameMessage::WorkUpdated(format!("Installing... {}%", progress))).ok();
+                                        }
                                     }
-                                }
-                            };
+                                };
 
-                            device.install_app(&bundle.bundle_dir(), progress_callback).await
-                                .map_err(|e| format!("Failed to install app: {}", e))?;
+                                device.install_app(&bundle.bundle_dir(), progress_callback).await
+                                    .map_err(|e| format!("Failed to install app: {}", e))?;
 
-                            if signer_settings.app.supports_pairing_file() {
-                                if let Some(usbmuxd_device) = &device.usbmuxd_device {
-                                    if usbmuxd_device.connection_type == idevice::usbmuxd::Connection::Usb {
-                                        if let (Some(custom_identifier), Some(pairing_file_bundle_path)) = (
-                                        signer.options.custom_identifier.as_ref(),
-                                        signer_settings.app.pairing_file_path(),
-                                    ) {
-                                            device.install_pairing_record(custom_identifier, &pairing_file_bundle_path)
-                                                .await
-                                                .map_err(|e| format!("Failed to install pairing record: {}", e))?;
+                                if signer_settings.app.supports_pairing_file() {
+                                    if let Some(usbmuxd_device) = &device.usbmuxd_device {
+                                        if usbmuxd_device.connection_type == idevice::usbmuxd::Connection::Usb {
+                                            if let (Some(custom_identifier), Some(pairing_file_bundle_path)) = (
+                                            signer.options.custom_identifier.as_ref(),
+                                            signer_settings.app.pairing_file_path(),
+                                        ) {
+                                                device.install_pairing_record(custom_identifier, &pairing_file_bundle_path)
+                                                    .await
+                                                    .map_err(|e| format!("Failed to install pairing record: {}", e))?;
+                                            }
                                         }
                                     }
                                 }
+                            }
+                            SignerInstallMode::Export => {
+                                todo!("Implement export installation");
                             }
                         }
 

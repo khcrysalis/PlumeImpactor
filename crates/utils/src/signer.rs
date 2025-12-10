@@ -34,6 +34,10 @@ impl Signer {
     }
 
     pub async fn modify_bundle(&mut self, bundle: &Bundle, team_id: &Option<String>) -> Result<(), Error> {
+        if self.options.mode == SignerMode::None {
+            return Ok(());
+        }
+
         let bundles = bundle.collect_bundles_sorted()?
             .into_iter()
             .filter(|b| b.bundle_type().should_have_entitlements())
@@ -131,6 +135,9 @@ impl Signer {
         session: &DeveloperSession,
         team_id: &String,
     ) -> Result<(), Error> {
+        if self.options.mode != SignerMode::Pem {
+            return Ok(());
+        }
 
         let bundles = bundle.collect_bundles_sorted()?
             .into_iter()
@@ -209,6 +216,10 @@ impl Signer {
     }
 
     pub async fn sign_bundle(&self, bundle: &Bundle) -> Result<(), Error> {
+        if self.options.mode == SignerMode::None {
+            return Ok(());
+        }
+
         let bundles = bundle.collect_bundles_sorted()?;
 
         let settings = Self::build_base_settings(self.certificate.as_ref())?;

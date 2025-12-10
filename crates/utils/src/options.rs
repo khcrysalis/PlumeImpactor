@@ -86,9 +86,10 @@ impl Default for SignerInstallMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SignerMode { // Pem, Adhoc
+pub enum SignerMode {
     Pem,
     Adhoc,
+    None,
 }
 
 impl Default for SignerMode {

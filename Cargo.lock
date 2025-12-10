@@ -3172,13 +3172,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "plume_mach"
-version = "1.1.1"
-dependencies = [
- "goblin",
-]
-
-[[package]]
 name = "plume_shared"
 version = "1.1.1"
 dependencies = [

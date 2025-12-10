@@ -2,7 +2,6 @@ use std::fs;
 use std::path::Path;
 
 use apple_codesign::{MachFile, MachOBinary, UniversalBinaryBuilder};
-use base64::write;
 use plist::{Dictionary, Value};
 use goblin::mach::{MachO as GoblinMachO, cputype::{CPU_TYPE_ARM64}, load_command::{
     CommandVariant, LC_LAZY_LOAD_DYLIB, LC_LOAD_DYLIB, LC_LOAD_UPWARD_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB
@@ -64,7 +63,7 @@ impl MachO {
         }
 
         let writer = &mut fs::File::create(self.path.clone()).map_err(Error::from)?;
-        builder.write(writer).ok(); // TODO: ignore for now
+        builder.write(writer)?;
 
         Ok(())
     }

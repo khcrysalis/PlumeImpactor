@@ -53,6 +53,8 @@ pub enum Error {
     Plist(#[from] plist::Error),
     #[error("Codesign error: {0}")]
     Codesign(#[from] apple_codesign::AppleCodesignError),
+    #[error("CodeSignBuilder error: {0}")]
+    CodeSignBuilder(#[from] apple_codesign::UniversalMachOError),
     #[error("Certificate PEM error: {0}")]
     Pem(#[from] pem::PemError),
     #[error("X509 certificate error: {0}")]

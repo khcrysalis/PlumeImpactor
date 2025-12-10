@@ -1,3 +1,4 @@
+diff -ruN -U3 a/src/bundle_signing.rs b/src/bundle_signing.rs
 --- a/src/bundle_signing.rs	2025-11-23 15:42:04
 +++ b/src/bundle_signing.rs	2025-11-23 15:59:04
 @@ -607,11 +607,6 @@
@@ -12,3 +13,41 @@
          let mut resources_digests = settings.all_digests(SettingsScope::Main);
  
          // State in the main executable can influence signing settings of the bundle. So examine
+diff -ruN -U3 a/src/lib.rs b/src/lib.rs
+--- a/src/lib.rs	2025-12-09 17:09:33
++++ b/src/lib.rs	2025-12-09 17:06:18
+@@ -143,7 +143,7 @@
+ mod macho_signing;
+ pub use macho_signing::*;
+ mod macho_universal;
+-pub use macho_universal::UniversalBinaryBuilder;
++pub use macho_universal::*;
+ #[cfg(feature = "notarize")]
+ pub mod notarization;
+ #[cfg(feature = "notarize")]
+diff -ruN -U3 a/src/macho.rs b/src/macho.rs
+--- a/src/macho.rs	2025-12-09 17:09:33
++++ b/src/macho.rs	2025-12-09 15:10:07
+@@ -646,9 +646,22 @@
+         self.machos.iter()
+     }
+ 
++    pub fn iter_macho_mut(&mut self) -> impl Iterator<Item = &mut MachOBinary<'a>> + '_ {
++        self.machos.iter_mut()
++    }
++
+     pub fn nth_macho(&self, index: usize) -> Result<&MachOBinary<'a>, AppleCodesignError> {
+         self.machos
+             .get(index)
++            .ok_or(AppleCodesignError::InvalidMachOIndex(index))
++    }
++
++    pub fn nth_macho_mut(
++        &mut self,
++        index: usize,
++    ) -> Result<&mut MachOBinary<'a>, AppleCodesignError> {
++        self.machos
++            .get_mut(index)
+             .ok_or(AppleCodesignError::InvalidMachOIndex(index))
+     }
+ }

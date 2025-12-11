@@ -9,16 +9,22 @@ use plume_utils::{Device, get_device_for_id};
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
 pub struct DeviceArgs {
+    /// Device UDID to target (optional, will prompt if not provided)
     #[arg(short = 'u', long = "udid", value_name = "UDID", conflicts_with = "mac")]
     pub udid: Option<String>,
+    /// Install app at specified path to device (.ipa, .app)
     #[arg(short = 'i', long = "install", value_name = "PATH")]
     pub install: Option<PathBuf>,
+    /// Install pairing record from specified path to device
     #[arg(short = 'p', long = "pairing", value_name = "MAC", conflicts_with = "mac", requires = "pairing_path")]
     pub pairing: bool,
+    /// Path to pairing record to install (i.e. /Documents/pairingFile.plist)
     #[arg(long = "pairing-path", value_name = "PATH", requires = "pairing")]
     pub pairing_path: Option<PathBuf>,
+    /// App identifier for the app to use for pairing record installation (optional, will prompt if not provided)
     #[arg(long = "pairing-app-identifier", value_name = "IDENTIFIER")]
     pub pairing_app_identifier: Option<String>,
+    /// Install to connected Mac (arm64 only)
     #[cfg(target_arch = "aarch64")]
     #[arg(short = 'm', long = "mac", value_name = "MAC", conflicts_with = "udid")]
     pub mac: bool,

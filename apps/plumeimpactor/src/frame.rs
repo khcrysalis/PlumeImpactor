@@ -347,11 +347,6 @@ impl PlumeFrame {
             let sender = sender.clone();
             move || {
                 let binding = message_handler.borrow();
-
-                let Some(selected_device) = binding.usbmuxd_selected_device_id.as_deref() else {
-                    sender.send(PlumeFrameMessage::Error("No device selected for installation.".to_string())).ok();
-                    return;
-                };
                 
                 let Some(selected_package) = binding.package_selected.as_ref() else {
                     sender.send(PlumeFrameMessage::Error("No package selected for installation.".to_string())).ok();
@@ -360,6 +355,16 @@ impl PlumeFrame {
                 
                 let mut signer_settings = binding.signer_settings.clone();
                 binding.plume_frame.install_page.update_fields(&mut signer_settings);
+
+                let selected_device = if signer_settings.install_mode == SignerInstallMode::Export {
+                    None
+                } else {
+                    let Some(device_id) = binding.usbmuxd_selected_device_id.as_deref() else {
+                        sender.send(PlumeFrameMessage::Error("No device selected for installation.".to_string())).ok();
+                        return;
+                    };
+                    Some(device_id.to_string())
+                };
 
                 let selected_account = if signer_settings.mode == SignerMode::Pem {
                     let Some(account) = binding.account_credentials.as_ref() else {
@@ -372,7 +377,6 @@ impl PlumeFrame {
                 };
 
                 let package = selected_package.clone();
-                let device_id = selected_device.to_string();
                 let sender_clone = sender.clone();
 
                 thread::spawn(move || {
@@ -381,33 +385,34 @@ impl PlumeFrame {
                     let install_result = rt.block_on(async {
                         sender_clone.send(PlumeFrameMessage::WorkStarted).ok();
 
-                        let device = if signer_settings.install_mode == SignerInstallMode::Export {
-                            None
-                        } else if device_id == u32::MAX.to_string() {
-                            signer_settings.install_mode = SignerInstallMode::InstallMac;
+                        let device = if let Some(device_id) = selected_device {
+                            if device_id == u32::MAX.to_string() {
+                                signer_settings.install_mode = SignerInstallMode::InstallMac;
 
-                            if signer_settings.mode == SignerMode::Adhoc {
-                                return Err("Ad-hoc signing is not supported for Mac installations.".to_string());
-                            }
-                            
-                            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-                            {
-                                let mac_udid = gestalt::get_udid()
-                                    .ok_or_else(|| "Failed to get Mac UDID".to_string())?;
-                                Some(Device { 
-                                    name: "This Mac".into(), 
-                                    udid: mac_udid, 
-                                    device_id: u32::MAX, 
-                                    usbmuxd_device: None 
-                                })
-                            }
-                            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-                            {
-                                return Err("Mac installation not supported on this platform".to_string());
+                                if signer_settings.mode == SignerMode::Adhoc {
+                                    return Err("Ad-hoc signing is not supported for Mac installations.".to_string());
+                                }
+                                
+                                #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+                                {
+                                    let mac_udid = gestalt::get_udid()
+                                        .ok_or_else(|| "Failed to get Mac UDID".to_string())?;
+                                    Some(Device { 
+                                        name: "This Mac".into(), 
+                                        udid: mac_udid, 
+                                        device_id: u32::MAX, 
+                                        usbmuxd_device: None 
+                                    })
+                                }
+                                #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+                                {
+                                    return Err("Mac installation not supported on this platform".to_string());
+                                }
+                            } else {
+                                Some(get_device_for_id(&device_id).await.map_err(|_| "Selected device not found".to_string())?)
                             }
                         } else {
-                            signer_settings.install_mode = SignerInstallMode::Install;
-                            Some(get_device_for_id(&device_id).await.map_err(|_| "Selected device not found".to_string())?)
+                            None
                         };
 
                         let mut package_file = package.package_file().clone();

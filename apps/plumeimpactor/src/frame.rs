@@ -410,6 +410,8 @@ impl PlumeFrame {
 
                         let mut package_file = package.package_file().clone();
 
+                        sender_clone.send(PlumeFrameMessage::WorkUpdated("Preparing package for installation...".into())).ok();
+
                         match signer_settings.mode {
                             SignerMode::Pem => {
                                 let Some(account) = selected_account else {
@@ -441,6 +443,8 @@ impl PlumeFrame {
                                     &teams[selected_index as usize].team_id
                                 };
 
+                                sender_clone.send(PlumeFrameMessage::WorkUpdated("Obtaining certificate identity...".into())).ok();
+
                                 let cert_identity = CertificateIdentity::new_with_session(
                                     &session,
                                     get_data_path(),
@@ -462,11 +466,17 @@ impl PlumeFrame {
                                 let bundle = package.get_package_bundle()
                                     .map_err(|e| format!("Failed to get package bundle: {}", e))?;
 
+                                sender_clone.send(PlumeFrameMessage::WorkUpdated("Modifying bundle...".into())).ok();
+
                                 signer.modify_bundle(&bundle, &Some(team_id.clone())).await
                                     .map_err(|e| format!("Failed to modify bundle: {}", e))?;
 
+                                sender_clone.send(PlumeFrameMessage::WorkUpdated("Registering bundle...".into())).ok();
+
                                 signer.register_bundle(&bundle, &session, &team_id).await
                                     .map_err(|e| format!("Failed to register bundle: {}", e))?;
+
+                                sender_clone.send(PlumeFrameMessage::WorkUpdated("Signing bundle...".into())).ok();
 
                                 signer.sign_bundle(&bundle).await
                                     .map_err(|e| format!("Failed to sign bundle: {}", e))?;
@@ -479,8 +489,12 @@ impl PlumeFrame {
                                 let bundle = package.get_package_bundle()
                                     .map_err(|e| format!("Failed to get package bundle: {}", e))?;
 
+                                sender_clone.send(PlumeFrameMessage::WorkUpdated("Modifying bundle...".into())).ok();
+
                                 signer.modify_bundle(&bundle, &None).await
                                     .map_err(|e| format!("Failed to modify bundle: {}", e))?;
+
+                                sender_clone.send(PlumeFrameMessage::WorkUpdated("Signing bundle...".into())).ok();
 
                                 signer.sign_bundle(&bundle).await
                                     .map_err(|e| format!("Failed to sign bundle: {}", e))?;
@@ -489,6 +503,8 @@ impl PlumeFrame {
                             }
                             _ => {}
                         }
+
+                        sender_clone.send(PlumeFrameMessage::WorkUpdated("Preparing...".into())).ok();
 
                         match signer_settings.install_mode {
                             SignerInstallMode::InstallMac => {

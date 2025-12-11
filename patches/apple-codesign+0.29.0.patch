@@ -81,9 +81,9 @@ diff -ruN -U3 a/src/macho.rs b/src/macho.rs
              .ok_or(AppleCodesignError::InvalidMachOIndex(index))
      }
  }
-diff -ruN -U3 /private/tmp/apple-platform-rs/apple-codesign/src/signing.rs /Users/petals/Documents/sideloading/target/patch/apple-codesign-0.29.0/src/signing.rs
---- /private/tmp/apple-platform-rs/apple-codesign/src/signing.rs	2025-12-09 17:09:33
-+++ /Users/petals/Documents/sideloading/target/patch/apple-codesign-0.29.0/src/signing.rs	2025-12-10 22:12:19
+diff -ruN -U3 a/src/signing.rs b/src/signing.rs
+--- a/src/signing.rs	2025-12-09 17:09:33
++++ b/src/signing.rs	2025-12-10 22:12:19
 @@ -66,6 +66,15 @@
          let output_path = output_path.as_ref();
  

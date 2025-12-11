@@ -177,7 +177,7 @@ impl PlumeFrameMessageHandler {
                 self.plume_frame.settings_dialog.set_account_name(None);
             }
             PlumeFrameMessage::InstallButtonStateChanged => {
-                let export = self.plume_frame.install_page.install_choice.get_selection() == Some(1);
+                let export = self.plume_frame.install_page.install_choice.get_selection() == Some(0);
                 let should_enable = !self.usbmuxd_device_list.is_empty() || export;
 
                 if export {

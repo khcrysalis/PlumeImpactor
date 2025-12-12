@@ -11,8 +11,8 @@ Open-source, cross-platform, and feature rich iOS sideloading application. Suppo
 
 [^2]: On Windows, [iTunes](https://support.apple.com/en-us/106372) must be downloaded so Impactor is able to use the drivers for interacting with Apple devices.
 
-| ![Demo of app](demo.webp)   |
-| :----------------------:    |
+| ![Demo of app](demo.webp)                                                                            |
+| :--------------------------------------------------------------------------------------------------: |
 | Demo of sideloading a working [LiveContainer](https://github.com/LiveContainer/LiveContainer) build. |
 
 ### Features
@@ -66,6 +66,7 @@ The project is seperated in multiple modules, all serve single or multiple uses 
 - [Sideloader](https://github.com/Dadoum/Sideloader) – Apple Developer API references.
 - [PyDunk](https://github.com/nythepegasus/PyDunk) – `v1` Apple Developer API references.
 - [idevice](https://github.com/jkcoxson/idevice) – Used for communication with `installd`, specifically for sideloading the apps to your devices.
+- [apple-codesign-rs](https://github.com/indygreg/apple-platform-rs) – Codesign alternative, modified and extended upon to work for Impactor.
 
 ## License
 

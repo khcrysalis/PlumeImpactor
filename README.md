@@ -20,13 +20,16 @@ Open-source, cross-platform, and feature rich iOS sideloading application. Suppo
 - User friendly and clean UI.
 - Supports Linux.
 - Sign and sideload applications on iOS 9.0+ & Mac with your Apple ID.
+  - Installing with AppSync is supported.
+  - Installing with ipatool gotten ipa's is supported.
 - Simple customization options for the app.
-- Generates P12 for SideStore/AltStore to use, similar to how Altserver works.
-- Automatically populate pairing files for specific apps like SideStore, Antrag, and Protokolle.
-- Almost *Proper* entitlement handling and can register app plugins.
-- Tweak support for advanced users, using [Ellekit](https://github.com/tealbathingsuit/ellekit) for injection. 
+- Tweak support for advanced users, using [ElleKit](https://github.com/tealbathingsuit/ellekit) for injection.
   - Supports injecting `.deb` and `.dylib` files.
   - Supports adding `.framework`, `.bundle`, and `.appex` directories.
+- Generates P12 for SideStore/AltStore to use, similar to how Altserver works.
+- Automatically populate pairing files for apps like SideStore, Antrag, and Protokolle.
+- Almost *proper* entitlement handling and can register app plugins.
+  - Able to request entitlements like `increased-memory-limit`, for emulators like MelonX or UTM.
 
 ## Download
 
@@ -58,7 +61,9 @@ The project is seperated in multiple modules, all serve single or multiple uses 
 
 - [SAMSAM](https://github.com/khcrysalis) – The maker.
 - [SideStore](https://github.com/SideStore/apple-private-apis) – Grandslam auth & Omnisette.
+- [gms.py](https://gist.github.com/JJTech0130/049716196f5f1751b8944d93e73d3452) – Grandslam auth API references.
 - [Sideloader](https://github.com/Dadoum/Sideloader) – Apple Developer API references.
+- [PyDunk](https://github.com/nythepegasus/PyDunk) – `v1` Apple Developer API references.
 - [idevice](https://github.com/jkcoxson/idevice) – Used for communication with `installd`, specifically for sideloading the apps to your devices.
 
 ## License

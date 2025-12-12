@@ -110,7 +110,7 @@ pub fn create_install_page(frame: &Frame) -> InstallPage {
         .with_label("Only Register Main Bundle")
         .build();
     skip_registering_extensions_checkbox.set_tooltip("Only registers the main bundle for the app, skipping any extensions. This saves you from making multiple app ids.");
-    let adhoc_items = ["Apple ID Sign", "Adhoc Sign", "No Modify"];
+    let adhoc_items = ["Apple ID", "Adhoc", "No Modify"];
     let adhoc_choice = Choice::builder(&panel)
         .with_style(ChoiceStyle::Sort)
         .with_choices(adhoc_items.iter().map(|s| s.to_string()).collect())

@@ -76,8 +76,6 @@ pub async fn execute(args: SignArgs) -> Result<()> {
     if let Some(provision_path) = args.provisioning_files {
         let prov = MobileProvision::load_with_path(&provision_path)?;
         signer.provisioning_files.push(prov.clone());
-        let p = bundle.bundle_dir().join("embedded.mobileprovision");
-        tokio::fs::write(p, prov.data).await?;
     }
 
     if let Some((session, team_id)) = team_id_opt {

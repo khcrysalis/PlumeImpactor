@@ -22,6 +22,7 @@ Open-source, cross-platform, and feature rich iOS sideloading application. Suppo
 - Sign and sideload applications on iOS 9.0+ & Mac with your Apple ID.
   - Installing with AppSync is supported.
   - Installing with ipatool gotten ipa's is supported.
+    - Automatically disables updates from the App Store.
 - Simple customization options for the app.
 - Tweak support for advanced users, using [ElleKit](https://github.com/tealbathingsuit/ellekit) for injection.
   - Supports injecting `.deb` and `.dylib` files.

@@ -162,6 +162,7 @@ jobs:
         run: |
           cargo build --bin ${{ env.BINARY_NAME }} --release --target ${{ matrix.target }}
           strip target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}
+
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} build/out/${{ env.BINARY_NAME }}-${{ matrix.arch }}
 
       - name: Upload ${{ matrix.arch }} Slice
@@ -203,6 +204,7 @@ jobs:
           mkdir -p build/universal
           lipo -create -output build/universal/${{ env.BINARY_NAME }} build/slices/${{ env.BINARY_NAME }}-arm build/slices/${{ env.BINARY_NAME }}-intel
           chmod +x build/universal/${{ env.BINARY_NAME }}
+          vtool -arch x86_64 -arch arm64 -set-build-version 1 11.0 26.0 -output build/universal/${{ env.BINARY_NAME }} build/universal/${{ env.BINARY_NAME }}
 
       - name: Bundle
         run: |

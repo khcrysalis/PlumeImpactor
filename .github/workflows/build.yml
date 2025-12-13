@@ -165,10 +165,10 @@ jobs:
       - name: Build (macOS ${{ matrix.arch }})
         run: |
           cargo build --workspace --bins --locked --release
-          strip target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}
-          strip target/${{ matrix.target }}/release/${{ env.BINARY_NAME_CLI }}
-          cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} build/out/${{ env.BINARY_NAME }}-${{ matrix.arch }}
-          cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME_CLI }} build/out/${{ env.BINARY_NAME_CLI }}-macos-${{ matrix.arch }}
+          strip target/release/${{ env.BINARY_NAME }}
+          strip target/release/${{ env.BINARY_NAME_CLI }}
+          cp target/release/${{ env.BINARY_NAME }} build/out/${{ env.BINARY_NAME }}-${{ matrix.arch }}
+          cp target/release/${{ env.BINARY_NAME_CLI }} build/out/${{ env.BINARY_NAME_CLI }}-macos-${{ matrix.arch }}
 
       - name: Upload ${{ matrix.arch }} Slice
         uses: actions/upload-artifact@v4

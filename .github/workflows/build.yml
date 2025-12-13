@@ -128,7 +128,7 @@ jobs:
           mv package/windows/* build/nsis/
           choco install nsis.portable
           makensis build/nsis/installer.nsi
-          mv build/nsis/PlumeInstaller.exe build/out/${{ env.BUNDLE_NAME }}-x86_64-setup.exe
+          mv build/nsis/PlumeInstaller.exe build/out/${{ env.BUNDLE_NAME }}-windows-x86_64-setup.exe
 
       - name: Upload Bundles
         uses: actions/upload-artifact@v4

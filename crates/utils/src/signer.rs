@@ -129,6 +129,8 @@ impl Signer {
         }
 
         if self.options.features.support_liquid_glass {
+            bundle.set_info_plist_key("UIDesignRequiresCompatibility", false)?;
+
             let executable_name = bundle.get_executable()
                 .ok_or(Error::BundleInfoPlistMissing)?;
 

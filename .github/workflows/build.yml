@@ -14,6 +14,7 @@ on:
 
 env:
   BINARY_NAME: plumeimpactor
+  BINARY_NAME_CLI: plumesign
   BUNDLE_NAME: Impactor
 
 jobs:
@@ -55,7 +56,9 @@ jobs:
           mkdir -p build/out
 
       - name: Build Binary
-        run: cargo build --bin ${{ env.BINARY_NAME }} --release
+        run: |
+          cargo build --workspace --bins --locked --release
+          cp target/release/${{ env.BINARY_NAME_CLI }} build/${{ env.BINARY_NAME_CLI }}-linux-${{ matrix.arch }}
 
       - name: Generate Runtime Metadata
         run: |
@@ -116,15 +119,16 @@ jobs:
 
       - name: Build & Bundle (Windows)
         run: |
-          cargo build --bin ${{ env.BINARY_NAME }} --release
+          cargo build --workspace --bins --locked --release
           cp target/release/${{ env.BINARY_NAME }}.exe build/nsis
+          cp target/release/${{ env.BINARY_NAME_CLI }}.exe build/out/${{ env.BINARY_NAME_CLI }}-windows-x86_64.exe
 
       - name: Create NSIS Installer
         run: |
           mv package/windows/* build/nsis/
           choco install nsis.portable
           makensis build/nsis/installer.nsi
-          mv build/nsis/PlumeInstaller.exe build/out/${{ env.BINARY_NAME }}-setup.exe
+          mv build/nsis/PlumeInstaller.exe build/out/${{ env.BUNDLE_NAME }}-x86_64-setup.exe
 
       - name: Upload Bundles
         uses: actions/upload-artifact@v4
@@ -162,14 +166,15 @@ jobs:
         run: |
           cargo build --bin ${{ env.BINARY_NAME }} --release --target ${{ matrix.target }}
           strip target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}
-
+          strip target/${{ matrix.target }}/release/${{ env.BINARY_NAME_CLI }}
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} build/out/${{ env.BINARY_NAME }}-${{ matrix.arch }}
+          cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME_CLI }} build/out/${{ env.BINARY_NAME_CLI }}-macos-${{ matrix.arch }}
 
       - name: Upload ${{ matrix.arch }} Slice
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-macos-slice-${{ matrix.arch }}
-          path: build/out/${{ env.BINARY_NAME }}-${{ matrix.arch }}
+          path: build/out/*
 
   build-macos-universal:
     runs-on: macos-latest

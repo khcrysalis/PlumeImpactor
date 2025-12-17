@@ -5,7 +5,7 @@ members = [
     "apps/plumesign",
     "crates/core",
     "crates/gestalt",
-    "crates/shared",
+    "crates/shared", "crates/storage",
     "crates/utils"
 ]
 

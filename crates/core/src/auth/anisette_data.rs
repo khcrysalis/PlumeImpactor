@@ -104,8 +104,6 @@ impl AnisetteData {
             .map(|(k, v)| (k.to_lowercase(), v.to_lowercase()))
             .collect::<HashMap<String, String>>();
 
-        log::debug!("Anisette headers: {:?}", headers);
-
         match headers.get(&header.to_lowercase()) {
             Some(v) => Ok(v.to_string()),
             None => Err(Error::DeveloperSessionRequestFailed),

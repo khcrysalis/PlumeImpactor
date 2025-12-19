@@ -23,8 +23,6 @@ wxdragon = { git = "https://github.com/PlumeImpactor/wxDragon", rev = "7d407ce",
 image = { version = "0.25.1", default-features = false, features = ["png"] }
 rustls = { version = "0.23.32", features = ["ring"] }
 
-keyring = { version = "3.6.3", default-features = false, features = ["windows-native", "apple-native", "linux-native"] }
-
 [target.'cfg(target_os = "windows")'.build-dependencies]
 embed-manifest = "1.4"
 winres = "0.1"

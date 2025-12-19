@@ -8,7 +8,7 @@ use std::{
 
 use plume_core::{
     AnisetteConfiguration, CertificateIdentity, auth::Account, developer::DeveloperSession,
-    store::{AccountStore, GsaAccount}
+    store::AccountStore
 };
 
 use idevice::{

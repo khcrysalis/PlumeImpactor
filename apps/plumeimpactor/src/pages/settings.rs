@@ -167,13 +167,13 @@ impl SettingsDialog {
         });
     }
     
-    pub fn refresh_account_list(&self, accounts: Vec<(String, String, String, bool)>) {
+    pub fn refresh_account_list(&self, accounts: Vec<(String, String, bool)>) {
         self.account_list.clear();
         
         let has_accounts = !accounts.is_empty();
         
-        for (i, (email, first_name, last_name, is_selected)) in accounts.into_iter().enumerate() {
-            let label = format!("{} {} ({})", first_name, last_name, email);
+        for (i, (email, first_name, is_selected)) in accounts.into_iter().enumerate() {
+            let label = format!("{} ({})", first_name, email);
             self.account_list.append(&label);
             
             if is_selected {

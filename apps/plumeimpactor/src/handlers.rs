@@ -20,7 +20,6 @@ pub enum PlumeFrameMessage {
     PackageDeselected,
     AccountAdded(String),
     AccountRemoved(String),
-    AccountSelected(String),
     RequestAccountAdd(GsaAccount),
     RequestAccountRemove(usize),
     RequestAccountSelect(usize),
@@ -175,11 +174,8 @@ impl PlumeFrameMessageHandler {
                 .build();
                 dialog.show_modal();
             }
-            PlumeFrameMessage::AccountSelected(_email) => {
-                // Account selection updated
-            }
             PlumeFrameMessage::RequestAccountAdd(gsa_account) => {
-                let email = gsa_account.email.clone();
+                let email = gsa_account.email().clone();
                 match self.account_store.accounts_add_sync(gsa_account) {
                     Ok(_) => {
                         self.handle_message(PlumeFrameMessage::AccountAdded(email));
@@ -209,7 +205,6 @@ impl PlumeFrameMessageHandler {
                 if let Some(email) = accounts.get(index).cloned() {
                     match self.account_store.account_select_sync(&email) {
                         Ok(_) => {
-                            self.handle_message(PlumeFrameMessage::AccountSelected(email));
                             self.refresh_account_list_ui();
                         }
                         Err(e) => {
@@ -346,15 +341,14 @@ impl PlumeFrameMessageHandler {
 
 impl PlumeFrameMessageHandler {
     pub fn refresh_account_list_ui(&self) {
-        let selected_email = self.account_store.selected_account().map(|a| a.email.clone());
+        let selected_email = self.account_store.selected_account().map(|a| a.email().clone());
         let mut account_list = Vec::new();
         
         for (email, account) in self.account_store.accounts() {
             let is_selected = selected_email.as_ref() == Some(email);
             account_list.push((
                 email.clone(),
-                account.first_name.clone(),
-                account.last_name.clone(),
+                account.first_name().clone(),
                 is_selected,
             ));
         }

@@ -8,7 +8,7 @@ use std::{
 
 use plume_core::{
     AnisetteConfiguration, CertificateIdentity, auth::Account, developer::DeveloperSession,
-    store::{AccountStore, GsaAnisetteProvider, AccountStatus}
+    store::{AccountStore, GsaAccount}
 };
 
 use idevice::{
@@ -384,7 +384,6 @@ impl PlumeFrame {
 
                 let needs_account = signer_settings.mode == SignerMode::Pem;
                 
-                // Extract account data before spawning thread
                 let gsa_account_data = if needs_account {
                     match binding.account_store.selected_account() {
                         Some(account) => Some(account.clone()),
@@ -405,26 +404,6 @@ impl PlumeFrame {
 
                     let install_result = rt.block_on(async {
                         sender_clone.send(PlumeFrameMessage::WorkStarted).ok();
-                        
-                        let selected_account = if let Some(gsa_account) = gsa_account_data {
-                            if *gsa_account.status() != AccountStatus::Valid {
-                                return Err("Account is invalid or needs re-authentication. Please re-login in Settings.".to_string());
-                            }
-                            
-                            let anisette_config = AnisetteConfiguration::default()
-                                .set_configuration_path(get_data_path());
-                            
-                            let account = Account::from_gsa_account(&gsa_account, anisette_config).await
-                                .map_err(|e| {
-                                    // Note: We can't update the store from here, but that's okay
-                                    // The next access will fail again and force re-login
-                                    format!("Session expired. Please re-login in Settings. Error: {}", e)
-                                })?;
-                            
-                            Some(account)
-                        } else {
-                            None
-                        };
 
                         let device = if let Some(device_id) = selected_device {
                             if device_id == u32::MAX.to_string() {
@@ -462,10 +441,18 @@ impl PlumeFrame {
 
                         match signer_settings.mode {
                             SignerMode::Pem => {
-                                let Some(account) = selected_account else {
+                                let Some(gsa_account) = gsa_account_data else {
                                     return Err("No Apple ID account available for installation.".to_string());
                                 };
-                                let session = DeveloperSession::with(account.clone());
+
+                                let anisette_config = AnisetteConfiguration::default()
+                                    .set_configuration_path(get_data_path());
+
+                                let session = DeveloperSession::new(
+                                    gsa_account.adsid().clone(), 
+                                    gsa_account.xcode_gs_token().clone(), 
+                                    anisette_config,
+                                ).await.map_err(|e| format!("Failed to create developer session: {}", e))?;
 
                                 let teams = session.qh_list_teams().await
                                     .map_err(|e| format!("Failed to list teams: {}", e))?.teams;
@@ -691,15 +678,15 @@ impl PlumeFrame {
                         
                         match account_result {
                             Ok(account) => {
-                                let gsa_account = match account.to_gsa_account(GsaAnisetteProvider::Remote) {
-                                    Ok(acc) => acc,
+                                let gsa_account_result = rt.block_on(plume_core::store::account_from_session(email.clone(), account));
+                                match gsa_account_result {
+                                    Ok(gsa_account) => {
+                                        sender.send(PlumeFrameMessage::RequestAccountAdd(gsa_account)).ok();
+                                    },
                                     Err(e) => {
-                                        sender.send(PlumeFrameMessage::Error(format!("Failed to convert account: {}", e))).ok();
-                                        return;
-                                    }
-                                };
-                                
-                                sender.send(PlumeFrameMessage::RequestAccountAdd(gsa_account)).ok();
+                                        sender.send(PlumeFrameMessage::Error(format!("Failed to create GSA account from session: {}", e))).ok();
+                                    },
+                                }
                             },
                             Err(e) => {
                                 sender.send(PlumeFrameMessage::Error(format!("Login failed: {}", e))).ok();

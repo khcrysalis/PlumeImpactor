@@ -28,6 +28,21 @@ pub enum AccountStatus {
 }
 
 impl GsaAccount {
+    pub fn new(
+        email: String,
+        first_name: String,
+        adsid: String,
+        xcode_gs_token: String,
+        status: AccountStatus,
+    ) -> Self {
+        GsaAccount {
+            email,
+            first_name,
+            adsid,
+            xcode_gs_token,
+            status,
+        }
+    }
     pub fn email(&self) -> &String {
         &self.email
     }
@@ -75,6 +90,20 @@ impl AccountStore {
         Ok(())
     }
 
+    pub fn save_sync(&self) -> Result<(), Error> {
+        if let Some(path) = &self.path {
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+
+            std::fs::write(
+                path, 
+                serde_json::to_string_pretty(self)?
+            )?;
+        }
+        Ok(())
+    }
+
     pub fn accounts(&self) -> &HashMap<String, GsaAccount> {
         &self.accounts
     }
@@ -90,6 +119,13 @@ impl AccountStore {
         self.save().await
     }
 
+    pub fn accounts_add_sync(&mut self, account: GsaAccount) -> Result<(), Error> {
+        let email = account.email.clone();
+        self.accounts.insert(email.clone(), account);
+        self.selected_account = Some(email);
+        self.save_sync()
+    }
+
     pub async fn accounts_remove(&mut self, email: &str) -> Result<(), Error> {
         self.accounts.remove(email);
         if self.selected_account.as_ref() == Some(&email.to_string()) {
@@ -98,10 +134,27 @@ impl AccountStore {
         self.save().await
     }
 
+    pub fn accounts_remove_sync(&mut self, email: &str) -> Result<(), Error> {
+        self.accounts.remove(email);
+        if self.selected_account.as_ref() == Some(&email.to_string()) {
+            self.selected_account = None;
+        }
+        self.save_sync()
+    }
+
     pub async fn account_select(&mut self, email: &str) -> Result<(), Error> {
         if self.accounts.contains_key(email) {
             self.selected_account = Some(email.to_string());
             self.save().await
+        } else {
+            Err(Error::Parse) // we need better errors
+        }
+    }
+
+    pub fn account_select_sync(&mut self, email: &str) -> Result<(), Error> {
+        if self.accounts.contains_key(email) {
+            self.selected_account = Some(email.to_string());
+            self.save_sync()
         } else {
             Err(Error::Parse) // we need better errors
         }
@@ -134,4 +187,20 @@ impl AccountStore {
 
         Ok(())
     }
+}
+
+pub async fn account_from_session(email: String, account: Account) -> Result<GsaAccount, Error> {
+    let first_name = account.get_name().0;
+    let s = DeveloperSession::using_account(account).await?;
+    s.qh_list_teams().await?;
+    let adsid = s.adsid().clone();
+    let xcode_gs_token = s.xcode_gs_token().clone();
+
+    Ok(GsaAccount::new(
+        email,
+        first_name,
+        adsid,
+        xcode_gs_token,
+        AccountStatus::Valid,
+    ))
 }

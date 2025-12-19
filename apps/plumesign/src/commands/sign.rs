@@ -144,6 +144,7 @@ pub async fn execute(args: SignArgs) -> Result<()> {
         
         if let Some(dev) = device {
             log::info!("Installing to device: {}", dev.name);
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
             if args.mac {
                 dev.install_app_mac(&bundle.bundle_dir()).await?;
             } else {
@@ -151,6 +152,14 @@ pub async fn execute(args: SignArgs) -> Result<()> {
                     log::info!("Installation progress: {}%", progress);
                 }).await?;
             }
+
+            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+            {
+                dev.install_app(bundle.bundle_dir(), |progress| async move {
+                    log::info!("Installation progress: {}%", progress);
+                }).await?;
+            }
+
             log::info!("Installation complete!");
         }
     } else {

@@ -97,7 +97,7 @@ impl Account {
         if iv.len() != 16 {
             return Err(Error::Parse);
         }   
-        // TODO: Replace with ring or another crate so we dont need to use fucking botan
+        // TODO: fucking botan
         let mut cipher = Cipher::new("AES-256/GCM", botan::CipherDirection::Decrypt)
             .map_err(|_| Error::Parse)?;
         cipher.set_key(sk).map_err(|_| Error::Parse)?;

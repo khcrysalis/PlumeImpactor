@@ -33,7 +33,6 @@ hmac = "0.12.1"
 pbkdf2 = "0.11"
 sha1 = "0.10.6"
 sha2 = "0.10.9"
-srp = "0.6.0"
 rsa = "0.9.8"
 # Certificates
 x509-certificate = "0.24.0"
@@ -42,9 +41,11 @@ pem-rfc7468 = "0.7.0"
 rcgen = "0.9.3"
 p12-keystore = "0.2.0" # TODO: look into p12 crate and why it doesnt support SHA256
 # Apple
-apple-codesign = { version = "0.29.0", default-features = false }
-omnisette = { git = "https://github.com/PlumeImpactor/omnisette", rev = "c066ac2", package = "omnisette", features = ["remote-anisette-v3"] }
 goblin = "0.9.3"
+# Forks
+apple-codesign = { git = "https://github.com/PlumeImpactor/plume-apple-platform-rs", rev = "428b42f", package = "apple-codesign", default-features =  false }
+omnisette = { git = "https://github.com/PlumeImpactor/omnisette", rev = "c066ac2", package = "omnisette", features = ["remote-anisette-v3"] }
+srp = { git = "https://github.com/PlumeImpactor/plume-PAKEs", rev = "047936a", package = "srp" }
 
 [features]
 default = []

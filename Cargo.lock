@@ -134,8 +134,7 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 [[package]]
 name = "apple-bundles"
 version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0f40bb8f844cec39fa3aceae717808c2ac3d2b6c474a9dffbeba07a4a945d10"
+source = "git+https://github.com/PlumeImpactor/plume-apple-platform-rs?rev=428b42f#428b42f059bbf0b17104f9ad448b5dab3ef79f53"
 dependencies = [
  "anyhow",
  "plist",
@@ -146,6 +145,7 @@ dependencies = [
 [[package]]
 name = "apple-codesign"
 version = "0.29.0"
+source = "git+https://github.com/PlumeImpactor/plume-apple-platform-rs?rev=428b42f#428b42f059bbf0b17104f9ad448b5dab3ef79f53"
 dependencies = [
  "anyhow",
  "apple-bundles",
@@ -223,8 +223,7 @@ dependencies = [
 [[package]]
 name = "apple-flat-package"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c9d5a1fd8af4a376cc33d7e816a13f8ce127d52101f5dbc8061fb595397bea0"
+source = "git+https://github.com/PlumeImpactor/plume-apple-platform-rs?rev=428b42f#428b42f059bbf0b17104f9ad448b5dab3ef79f53"
 dependencies = [
  "apple-xar",
  "cpio-archive",
@@ -238,8 +237,7 @@ dependencies = [
 [[package]]
 name = "apple-xar"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9631e781df71ebd049d7b4988cdae88712324cb20eb127fd79026bc8f1335d93"
+source = "git+https://github.com/PlumeImpactor/plume-apple-platform-rs?rev=428b42f#428b42f059bbf0b17104f9ad448b5dab3ef79f53"
 dependencies = [
  "base64 0.22.1",
  "bcder",
@@ -923,13 +921,12 @@ checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 [[package]]
 name = "cpio-archive"
 version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f11d34b07689c21889fc89bd7cc885b3244b0157bbededf4a1c159832cd0df05"
+source = "git+https://github.com/PlumeImpactor/plume-apple-platform-rs?rev=428b42f#428b42f059bbf0b17104f9ad448b5dab3ef79f53"
 dependencies = [
  "chrono",
  "is_executable",
  "simple-file-manifest",
- "thiserror 1.0.69",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -4227,6 +4224,7 @@ dependencies = [
 [[package]]
 name = "srp"
 version = "0.6.0"
+source = "git+https://github.com/PlumeImpactor/plume-PAKEs?rev=047936a#047936ae2e8bc5cb7a6b26edb66ae06a57ff451c"
 dependencies = [
  "digest",
  "generic-array",

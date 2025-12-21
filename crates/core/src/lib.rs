@@ -1,7 +1,10 @@
+uniffi::include_scaffolding!("core");
+
 pub mod auth;
 pub mod developer;
 pub mod store;
 mod utils;
+mod bridge;
 
 pub use apple_codesign::{
     SigningSettings,
@@ -9,6 +12,7 @@ pub use apple_codesign::{
     UnifiedSigner,
     AppleCodesignError
 };
+
 
 pub use omnisette::AnisetteConfiguration;
 

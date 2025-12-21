@@ -7,6 +7,9 @@ authors.workspace = true
 license = "MPL-2.0"
 repository.workspace = true
 
+[lib]
+crate-type = ["rlib", "staticlib", "cdylib"]
+
 [package.metadata.patch]
 crates = ["srp", "apple-codesign"]
 
@@ -47,9 +50,15 @@ apple-codesign = { git = "https://github.com/PlumeImpactor/plume-apple-platform-
 omnisette = { git = "https://github.com/PlumeImpactor/omnisette", rev = "c066ac2", package = "omnisette", features = ["remote-anisette-v3"] }
 srp = { git = "https://github.com/PlumeImpactor/plume-PAKEs", rev = "047936a", package = "srp" }
 
+uniffi = { workspace = true, features = ["tokio"] }
+env_logger.workspace = true
+
 [features]
 default = []
 vendored-botan = ["botan/vendored"]
 # TODO: add features lmao
 tweaks = []
 store = []
+
+[build-dependencies]
+uniffi = { workspace = true, features = ["build"] }

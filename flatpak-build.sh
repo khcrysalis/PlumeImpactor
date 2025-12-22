@@ -50,3 +50,4 @@ with open(generated_path, "w", encoding="utf-8") as f:
 PY
 
 flatpak-builder --force-clean --install --user build-dir "$generated_manifest"
+flatpak build-bundle ~/.local/share/flatpak/repo PlumeImpactor.flatpak com.khcrysalis.PlumeImpactor

@@ -13,7 +13,7 @@ tokio.workspace = true
 futures.workspace = true
 env_logger.workspace = true
 log.workspace = true
-plume_core = { path = "../../crates/core", features = ["vendored-botan"] }
+plume_core = { path = "../../crates/core" }
 plume_utils = { path = "../../crates/types" }
 plume_shared = { path = "../../crates/shared" }
 

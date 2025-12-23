@@ -1,13 +1,17 @@
-use serde::Deserialize;
 use plist::{Data, Date, Dictionary, Value};
+use serde::Deserialize;
 
 use crate::Error;
 
-use crate::developer_endpoint;
 use super::{DeveloperSession, QHResponseMeta};
+use crate::developer_endpoint;
 
 impl DeveloperSession {
-    pub async fn qh_get_profile(&self, team_id: &String, app_id_id: &String) -> Result<ProfilesResponse, Error> {
+    pub async fn qh_get_profile(
+        &self,
+        team_id: &String,
+        app_id_id: &String,
+    ) -> Result<ProfilesResponse, Error> {
         let endpoint = developer_endpoint!("/QH65B2/ios/downloadTeamProvisioningProfile.action");
 
         let mut body = Dictionary::new();

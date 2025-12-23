@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use base64::{Engine, engine::general_purpose};
 use crate::Error;
+use base64::{Engine, engine::general_purpose};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
 use crate::auth::{Account, AuthenticationExtras, LoginState, PhoneNumber, VerifyBody, VerifyCode};
@@ -9,7 +9,7 @@ use crate::auth::{Account, AuthenticationExtras, LoginState, PhoneNumber, Verify
 impl Account {
     pub async fn send_2fa_to_devices(&self) -> Result<LoginState, Error> {
         let headers = self.build_2fa_headers(false).await;
-        
+
         let res = self
             .client
             .get("https://gsa.apple.com/auth/verify/trusteddevice")
@@ -20,7 +20,10 @@ impl Account {
         let status_code = res.status();
 
         if !status_code.is_success() {
-            return Err(Error::AuthSrpWithMessage(status_code.as_u16() as i64, "Failed to send 2FA to devices".to_string()));
+            return Err(Error::AuthSrpWithMessage(
+                status_code.as_u16() as i64,
+                "Failed to send 2FA to devices".to_string(),
+            ));
         }
 
         return Ok(LoginState::Needs2FAVerification);
@@ -28,7 +31,7 @@ impl Account {
 
     pub async fn send_sms_2fa_to_devices(&self, phone_id: u32) -> Result<LoginState, Error> {
         let headers = self.build_2fa_headers(true).await;
-        
+
         let body = VerifyBody {
             phone_number: PhoneNumber { id: phone_id },
             mode: "sms".to_string(),
@@ -46,7 +49,10 @@ impl Account {
         let status_code = res.status();
 
         if !status_code.is_success() {
-            return Err(Error::AuthSrpWithMessage(status_code.as_u16() as i64, "Failed to send SMS 2FA to devices".to_string()));
+            return Err(Error::AuthSrpWithMessage(
+                status_code.as_u16() as i64,
+                "Failed to send SMS 2FA to devices".to_string(),
+            ));
         }
 
         return Ok(LoginState::NeedsSMS2FAVerification(body));
@@ -126,7 +132,7 @@ impl Account {
 
         Ok(LoginState::NeedsLogin)
     }
-    
+
     async fn build_2fa_headers(&self, sms: bool) -> HeaderMap {
         let spd = self.spd.as_ref().unwrap();
         let dsid = spd.get("adsid").unwrap().as_string().unwrap();
@@ -151,7 +157,10 @@ impl Account {
         }
         headers.insert("User-Agent", HeaderValue::from_static("Xcode"));
         headers.insert("Accept-Language", HeaderValue::from_static("en-us"));
-        headers.append("X-Apple-Identity-Token", HeaderValue::from_str(&identity_token).unwrap());
+        headers.append(
+            "X-Apple-Identity-Token",
+            HeaderValue::from_str(&identity_token).unwrap(),
+        );
 
         if let Ok(locale) = valid_anisette.get_header("x-apple-locale") {
             headers.insert("Loc", HeaderValue::from_str(&locale).unwrap());
@@ -160,4 +169,3 @@ impl Account {
         headers
     }
 }
-

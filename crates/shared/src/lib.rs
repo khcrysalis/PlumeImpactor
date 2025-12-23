@@ -1,4 +1,7 @@
-use std::{env, fs, path::{Path, PathBuf}};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
 pub fn get_data_path() -> PathBuf {
     let base = if cfg!(windows) {
@@ -7,10 +10,9 @@ pub fn get_data_path() -> PathBuf {
         env::var("HOME").unwrap() + "/.config"
     };
 
-    let dir = Path::new(&base)
-        .join("PlumeImpactor");
+    let dir = Path::new(&base).join("PlumeImpactor");
 
     fs::create_dir_all(&dir).ok();
-    
+
     dir
 }

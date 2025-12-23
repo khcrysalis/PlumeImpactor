@@ -1,4 +1,4 @@
-use serde::{Deserialize};
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::{DeveloperSession, RequestType};
@@ -10,49 +10,65 @@ impl DeveloperSession {
     pub async fn v1_list_app_ids(&self, team: &String) -> Result<AppIDsResponse, Error> {
         let endpoint = developer_endpoint!("/v1/bundleIds");
 
-        let body = json!({ 
+        let body = json!({
             "teamId": team,
             "urlEncodedQueryParams": "limit=1000"
         });
 
-        let response = self.v1_send_request(&endpoint, Some(body), Some(RequestType::Get)).await?;
+        let response = self
+            .v1_send_request(&endpoint, Some(body), Some(RequestType::Get))
+            .await?;
         let response_data: AppIDsResponse = serde_json::from_value(response)?;
-        
+
         Ok(response_data)
     }
-    
-    pub async fn v1_get_app_id(&self, team: &String, app_id: &String) -> Result<Option<AppID>, Error> {
+
+    pub async fn v1_get_app_id(
+        &self,
+        team: &String,
+        app_id: &String,
+    ) -> Result<Option<AppID>, Error> {
         let response_data = self.v1_list_app_ids(team).await?;
 
-        let app_id = response_data.data.into_iter()
+        let app_id = response_data
+            .data
+            .into_iter()
             .find(|app| app.attributes.identifier == *app_id);
 
         Ok(app_id)
     }
 
-    pub async fn v1_update_app_id(&self, team: &String, app_id: &String, capabilities: Vec<String>) -> Result<AppIDResponse, Error> {
+    pub async fn v1_update_app_id(
+        &self,
+        team: &String,
+        app_id: &String,
+        capabilities: Vec<String>,
+    ) -> Result<AppIDResponse, Error> {
         let response_data = self.v1_get_app_id(team, app_id).await?;
         let app_id = response_data.ok_or(Error::DeveloperSessionRequestFailed)?;
 
         let endpoint = developer_endpoint!(&format!("/v1/bundleIds/{}", app_id.id));
 
-        let bundle_id_capabilities: Vec<Value> = capabilities.into_iter().map(|capability_id| {
-            json!({
-                "type": "bundleIdCapabilities",
-                "attributes": {
-                    "enabled": true,
-                    "settings": []
-                },
-                "relationships": {
-                    "capability": {
-                        "data": {
-                            "type": "capabilities",
-                            "id": capability_id
+        let bundle_id_capabilities: Vec<Value> = capabilities
+            .into_iter()
+            .map(|capability_id| {
+                json!({
+                    "type": "bundleIdCapabilities",
+                    "attributes": {
+                        "enabled": true,
+                        "settings": []
+                    },
+                    "relationships": {
+                        "capability": {
+                            "data": {
+                                "type": "capabilities",
+                                "id": capability_id
+                            }
                         }
                     }
-                }
+                })
             })
-        }).collect();
+            .collect();
 
         let payload = json!({
             "data": {
@@ -73,7 +89,9 @@ impl DeveloperSession {
             }
         });
 
-        let response = self.v1_send_request(&endpoint, Some(payload), Some(RequestType::Patch)).await?;
+        let response = self
+            .v1_send_request(&endpoint, Some(payload), Some(RequestType::Patch))
+            .await?;
         let response_data: AppIDResponse = serde_json::from_value(response)?;
 
         Ok(response_data)

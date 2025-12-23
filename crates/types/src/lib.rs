@@ -1,23 +1,23 @@
-mod options;
-mod package;
 mod bundle;
 mod device;
+mod options;
+mod package;
 mod signer;
 mod tweak;
 
 use std::path::Path;
 
-pub use options::{
-    SignerOptions, // Main
-    SignerFeatures, // Feature support options
-    SignerEmbedding, // Embedding options
-    SignerMode, // Signing mode
-    SignerInstallMode, // Installation mode
-    SignerApp // Supported app types
-};
-pub use package::Package; // Package helper
 pub use bundle::{Bundle, BundleType}; // Bundle helper
 pub use device::{Device, get_device_for_id}; // Device helper
+pub use options::{
+    SignerApp,         // Supported app types
+    SignerEmbedding,   // Embedding options
+    SignerFeatures,    // Feature support options
+    SignerInstallMode, // Installation mode
+    SignerMode,        // Signing mode
+    SignerOptions,     // Main
+};
+pub use package::Package; // Package helper
 pub use signer::Signer; // Signer
 pub use tweak::Tweak; // Tweak helper
 
@@ -65,21 +65,21 @@ pub trait PlistInfoTrait {
 
 async fn copy_dir_recursively(src: &Path, dst: &Path) -> Result<(), Error> {
     use tokio::fs;
-    
+
     fs::create_dir_all(dst).await?;
     let mut entries = fs::read_dir(src).await?;
-    
+
     while let Some(entry) = entries.next_entry().await? {
         let file_type = entry.file_type().await?;
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
-        
+
         if file_type.is_dir() {
             Box::pin(copy_dir_recursively(&src_path, &dst_path)).await?;
         } else {
             fs::copy(&src_path, &dst_path).await?;
         }
     }
-    
+
     Ok(())
 }

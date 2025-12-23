@@ -1,11 +1,11 @@
-use serde::Deserialize;
 use plist::{Dictionary, Integer, Value};
+use serde::Deserialize;
 
 use crate::Error;
 
+use super::{DeveloperSession, QHResponseMeta};
 use crate::developer::strip_invalid_chars;
 use crate::developer_endpoint;
-use super::{DeveloperSession, QHResponseMeta};
 
 impl DeveloperSession {
     pub async fn qh_list_app_ids(&self, team_id: &String) -> Result<AppIDsResponse, Error> {
@@ -20,9 +20,14 @@ impl DeveloperSession {
         Ok(response_data)
     }
 
-    pub async fn qh_add_app_id(&self, team_id: &String, name: &String, identifier: &String) -> Result<AppIDResponse, Error> {
+    pub async fn qh_add_app_id(
+        &self,
+        team_id: &String,
+        name: &String,
+        identifier: &String,
+    ) -> Result<AppIDResponse, Error> {
         let endpoint = developer_endpoint!("/QH65B2/ios/addAppId.action");
-        
+
         let mut body = Dictionary::new();
         body.insert("teamId".to_string(), Value::String(team_id.clone()));
         body.insert("name".to_string(), Value::String(strip_invalid_chars(name)));
@@ -34,46 +39,66 @@ impl DeveloperSession {
         Ok(response_data)
     }
 
-    pub async fn qh_delete_app_id(&self, team_id: &String, app_id_id: &String) -> Result<QHResponseMeta, Error> {
+    pub async fn qh_delete_app_id(
+        &self,
+        team_id: &String,
+        app_id_id: &String,
+    ) -> Result<QHResponseMeta, Error> {
         let endpoint = developer_endpoint!("/QH65B2/ios/deleteAppId.action");
-        
+
         let mut body = Dictionary::new();
         body.insert("teamId".to_string(), Value::String(team_id.clone()));
         body.insert("appIdId".to_string(), Value::String(app_id_id.clone()));
-        
+
         let response = self.qh_send_request(&endpoint, Some(body)).await?;
         let response_data: QHResponseMeta = plist::from_value(&Value::Dictionary(response))?;
 
         Ok(response_data)
     }
 
-    pub async fn qh_update_app_id(&self, team_id: &String, app_id_id: &String, features: Dictionary) -> Result<AppIDResponse, Error> {
+    pub async fn qh_update_app_id(
+        &self,
+        team_id: &String,
+        app_id_id: &String,
+        features: Dictionary,
+    ) -> Result<AppIDResponse, Error> {
         let endpoint = developer_endpoint!("/QH65B2/ios/updateAppId.action");
-        
+
         let mut body = Dictionary::new();
         body.insert("teamId".to_string(), Value::String(team_id.clone()));
         body.insert("appIdId".to_string(), Value::String(app_id_id.clone()));
-        
+
         for (key, value) in features {
             body.insert(key, value);
         }
-        
+
         let response = self.qh_send_request(&endpoint, Some(body)).await?;
         let response_data: AppIDResponse = plist::from_value(&Value::Dictionary(response))?;
 
         Ok(response_data)
     }
 
-    pub async fn qh_get_app_id(&self, team_id: &String, identifier: &String) -> Result<Option<AppID>, Error> {
+    pub async fn qh_get_app_id(
+        &self,
+        team_id: &String,
+        identifier: &String,
+    ) -> Result<Option<AppID>, Error> {
         let response_data = self.qh_list_app_ids(team_id).await?;
 
-        let app_id = response_data.app_ids.into_iter()
+        let app_id = response_data
+            .app_ids
+            .into_iter()
             .find(|app| app.identifier == *identifier);
 
         Ok(app_id)
     }
 
-    pub async fn qh_ensure_app_id(&self, team_id: &String, name: &String, identifier: &String) -> Result<AppID, Error> {
+    pub async fn qh_ensure_app_id(
+        &self,
+        team_id: &String,
+        name: &String,
+        identifier: &String,
+    ) -> Result<AppID, Error> {
         if let Some(app_id) = self.qh_get_app_id(team_id, identifier).await? {
             Ok(app_id)
         } else {
@@ -129,7 +154,7 @@ struct Features {
     i_cloud: bool, // com.apple.developer.icloud-container-development-container-identifiers, com.apple.developer.icloud-services, com.apple.developer.icloud-container-environment, com.apple.developer.ubiquity-kvstore-identifier, com.apple.developer.ubiquity-container-identifiers, com.apple.developer.icloud-container-identifiers
     in_app_purchase: bool,
     game_center: bool, // com.apple.developer.game-center // bro this doesnt turn off if this is on at all
-    passbook: bool, // com.apple.developer.pass-type-identifiers
+    passbook: bool,    // com.apple.developer.pass-type-identifiers
     // IAD53UNK2F inter-app-audio
     // V66P55NK2I com.apple.developer.networking.vpn.api
     data_protection: String, // com.apple.developer.default-data-protection // complete, unlessopen, untilfirstauth
@@ -157,6 +182,6 @@ struct Features {
 
 impl Features {
     // pub fn get_feature_for_entitlement(entitlement: &str) -> Option<&'static str> {
-        
+
     // }
 }

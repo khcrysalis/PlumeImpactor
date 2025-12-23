@@ -61,17 +61,13 @@ pub fn create_default_page(frame: &Frame) -> DefaultPage {
         .with_url("https://github.com/khcrysalis")
         .with_style(HyperlinkCtrlStyle::AlignLeft | HyperlinkCtrlStyle::NoUnderline)
         .build();
-    let separator1 = StaticText::builder(&panel)
-        .with_label(" • ")
-        .build();
+    let separator1 = StaticText::builder(&panel).with_label(" • ").build();
     let github_link = HyperlinkCtrl::builder(&panel)
         .with_label("GitHub")
         .with_url("https://github.com/khcrysalis/plumeimpactor")
         .with_style(HyperlinkCtrlStyle::AlignLeft | HyperlinkCtrlStyle::NoUnderline)
         .build();
-    let separator2 = StaticText::builder(&panel)
-        .with_label(" • ")
-        .build();
+    let separator2 = StaticText::builder(&panel).with_label(" • ").build();
     let donate_link = HyperlinkCtrl::builder(&panel)
         .with_label("Donate")
         .with_url("https://github.com/sponsors/khcrysalis")
@@ -84,12 +80,7 @@ pub fn create_default_page(frame: &Frame) -> DefaultPage {
     love_sizer.add(&separator2, 0, SizerFlag::AlignCenterVertical, 0);
     love_sizer.add(&donate_link, 0, SizerFlag::AlignCenterVertical, 0);
 
-    sizer.add_sizer(
-        &love_sizer,
-        0,
-        SizerFlag::Left | SizerFlag::All,
-        15,
-    );
+    sizer.add_sizer(&love_sizer, 0, SizerFlag::Left | SizerFlag::All, 15);
 
     panel.set_sizer(sizer, true);
 

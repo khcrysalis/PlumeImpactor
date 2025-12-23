@@ -9,7 +9,10 @@ use crate::Error;
 
 use crate::auth::account::{check_error, parse_response};
 use crate::auth::anisette_data::AnisetteData;
-use crate::auth::{Account, ChallengeRequest, ChallengeRequestBody, GSA_ENDPOINT, InitRequest, InitRequestBody,LoginState, RequestHeader};
+use crate::auth::{
+    Account, ChallengeRequest, ChallengeRequestBody, GSA_ENDPOINT, InitRequest, InitRequestBody,
+    LoginState, RequestHeader,
+};
 
 #[macro_export]
 macro_rules! plist_get_string {
@@ -62,9 +65,9 @@ impl Account {
         let (username, password) = appleid_closure().map_err(|e| {
             Error::AuthSrpWithMessage(0, format!("Failed to get Apple ID credentials: {}", e))
         })?;
-        
+
         let mut response = _self.login_email_pass(&username, &password).await?;
-        
+
         loop {
             match response {
                 LoginState::NeedsDevice2FA => response = _self.send_2fa_to_devices().await?,
@@ -117,12 +120,23 @@ impl Account {
         let anisette = self.get_anisette().await;
 
         let mut gsa_headers = HeaderMap::new();
-        gsa_headers.insert("Content-Type", HeaderValue::from_str("text/x-xml-plist").unwrap());
+        gsa_headers.insert(
+            "Content-Type",
+            HeaderValue::from_str("text/x-xml-plist").unwrap(),
+        );
         gsa_headers.insert("Accept", HeaderValue::from_str("*/*").unwrap());
-        gsa_headers.insert("User-Agent", HeaderValue::from_str("akd/1.0 CFNetwork/978.0.7 Darwin/18.7.0").unwrap());
-        gsa_headers.insert("X-MMe-Client-Info", HeaderValue::from_str(&anisette.get_header("x-mme-client-info")?).unwrap());
+        gsa_headers.insert(
+            "User-Agent",
+            HeaderValue::from_str("akd/1.0 CFNetwork/978.0.7 Darwin/18.7.0").unwrap(),
+        );
+        gsa_headers.insert(
+            "X-MMe-Client-Info",
+            HeaderValue::from_str(&anisette.get_header("x-mme-client-info")?).unwrap(),
+        );
 
-        let header = RequestHeader { version: "1.0.1".to_string() };
+        let header = RequestHeader {
+            version: "1.0.1".to_string(),
+        };
         let init_body = InitRequestBody {
             a_pub: plist::Value::Data(a_pub),
             cpd: anisette.to_plist(true, false, false),
@@ -139,7 +153,8 @@ impl Account {
         let mut buffer = Vec::new();
         plist::to_writer_xml(&mut buffer, &init_packet)?;
 
-        let res = self.client
+        let res = self
+            .client
             .post(GSA_ENDPOINT)
             .headers(gsa_headers.clone())
             .body(buffer)
@@ -184,7 +199,8 @@ impl Account {
         let mut buffer = Vec::new();
         plist::to_writer_xml(&mut buffer, &challenge_packet)?;
 
-        let res = self.client
+        let res = self
+            .client
             .post(GSA_ENDPOINT)
             .headers(gsa_headers)
             .body(buffer)
@@ -193,7 +209,7 @@ impl Account {
 
         let res = parse_response(res).await?;
         check_error(&res)?;
-        
+
         let m2 = res.get("M2").unwrap().as_data().unwrap();
         verifier.verify_server(m2).unwrap();
 
@@ -202,7 +218,10 @@ impl Account {
         let mut spd: Dictionary = plist::from_bytes(&spd_decrypted).unwrap();
 
         if !spd.contains_key("appleId") {
-            spd.insert("appleId".to_string(), plist::Value::String(username_for_spd));
+            spd.insert(
+                "appleId".to_string(),
+                plist::Value::String(username_for_spd),
+            );
         }
 
         self.spd = Some(spd);
@@ -223,11 +242,7 @@ impl Account {
         let base = self.spd.as_ref().unwrap();
         let token = base.get("t")?.as_dictionary()?;
 
-        Some(plist_get_string!(
-            token,
-            "com.apple.gs.idms.pet",
-            "token"
-        ))
+        Some(plist_get_string!(token, "com.apple.gs.idms.pet", "token"))
     }
 
     pub fn get_name(&self) -> (String, String) {

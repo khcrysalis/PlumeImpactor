@@ -1,13 +1,16 @@
 use std::path::PathBuf;
 
-use clap::Args;
 use anyhow::Result;
+use clap::Args;
 
 use plume_core::{CertificateIdentity, MobileProvision};
 use plume_shared::get_data_path;
 use plume_utils::{Bundle, Package, Signer, SignerMode, SignerOptions};
 
-use crate::commands::{account::{get_authenticated_account, teams}, device::select_device};
+use crate::commands::{
+    account::{get_authenticated_account, teams},
+    device::select_device,
+};
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -57,7 +60,7 @@ pub async fn execute(args: SignArgs) -> Result<()> {
             "-o/--output is required when signing an .ipa without --apple-id (ad-hoc mode)."
         ));
     }
-    
+
     let mut options = SignerOptions {
         custom_identifier: args.bundle_identifier,
         custom_name: args.name,
@@ -65,11 +68,13 @@ pub async fn execute(args: SignArgs) -> Result<()> {
         tweaks: args.tweaks,
         ..Default::default()
     };
-    
+
     let (bundle, package) = if args.package.is_dir() {
         log::warn!("⚠️  Signing bundle in place: {}", args.package.display());
         if args.output.is_some() {
-            log::warn!("Note: -o/--output flag is ignored for .app bundles (in-place signing only)");
+            log::warn!(
+                "Note: -o/--output flag is ignored for .app bundles (in-place signing only)"
+            );
         }
         (Bundle::new(&args.package)?, None)
     } else {
@@ -77,26 +82,24 @@ pub async fn execute(args: SignArgs) -> Result<()> {
         let bundle = pkg.get_package_bundle()?;
         (bundle, Some(pkg))
     };
-    
+
     let (mut signer, team_id_opt) = if let Some(ref pem_files) = args.pem_files {
-        let cert_identity = CertificateIdentity::new_with_paths(
-            Some(pem_files.clone())
-        ).await?;
+        let cert_identity = CertificateIdentity::new_with_paths(Some(pem_files.clone())).await?;
 
         options.mode = SignerMode::Pem;
         (Signer::new(Some(cert_identity), options), None)
     } else if args.apple_id {
         let session = get_authenticated_account().await?;
         let team_id = teams(&session).await?;
-        let cert_identity = CertificateIdentity::new_with_session(
-            &session,
-            get_data_path(),
-            None,
-            &team_id,
-        ).await?;
+        let cert_identity =
+            CertificateIdentity::new_with_session(&session, get_data_path(), None, &team_id)
+                .await?;
 
         options.mode = SignerMode::Pem;
-        (Signer::new(Some(cert_identity), options), Some((session, team_id)))
+        (
+            Signer::new(Some(cert_identity), options),
+            Some((session, team_id)),
+        )
     } else {
         options.mode = SignerMode::Adhoc;
         (Signer::new(None, options), None)
@@ -132,16 +135,20 @@ pub async fn execute(args: SignArgs) -> Result<()> {
     };
 
     if let Some((session, team_id)) = team_id_opt {
-        signer.modify_bundle(&bundle, &Some(team_id.clone())).await?;
-        
+        signer
+            .modify_bundle(&bundle, &Some(team_id.clone()))
+            .await?;
+
         if let Some(ref dev) = device {
             log::info!("Registering device: {} ({})", dev.name, dev.udid);
-            session.qh_ensure_device(&team_id, &dev.name, &dev.udid).await?;
+            session
+                .qh_ensure_device(&team_id, &dev.name, &dev.udid)
+                .await?;
         }
-        
+
         signer.register_bundle(&bundle, &session, &team_id).await?;
         signer.sign_bundle(&bundle).await?;
-        
+
         if let Some(dev) = device {
             log::info!("Installing to device: {}", dev.name);
             #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
@@ -150,14 +157,16 @@ pub async fn execute(args: SignArgs) -> Result<()> {
             } else {
                 dev.install_app(bundle.bundle_dir(), |progress| async move {
                     log::info!("Installation progress: {}%", progress);
-                }).await?;
+                })
+                .await?;
             }
 
             #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
             {
                 dev.install_app(bundle.bundle_dir(), |progress| async move {
                     log::info!("Installation progress: {}%", progress);
-                }).await?;
+                })
+                .await?;
             }
 
             log::info!("Installation complete!");
@@ -165,17 +174,18 @@ pub async fn execute(args: SignArgs) -> Result<()> {
     } else {
         signer.modify_bundle(&bundle, &None).await?;
         signer.sign_bundle(&bundle).await?;
-        
+
         if let Some(dev) = device {
             log::info!("Installing to device: {}", dev.name);
             dev.install_app(bundle.bundle_dir(), |progress| async move {
                 log::info!("Installation progress: {}%", progress);
-            }).await?;
+            })
+            .await?;
 
             log::info!("Installation complete!");
         }
     }
-    
+
     if let Some(pkg) = package {
         if let Some(output_path) = args.output {
             let archived_path = pkg.get_archive_based_on_path(args.package.clone())?;

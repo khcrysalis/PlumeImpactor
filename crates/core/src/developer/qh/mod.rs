@@ -3,12 +3,12 @@ pub mod app_groups;
 pub mod app_ids;
 pub mod certs;
 pub mod devices;
-pub mod teams;
 pub mod profile;
+pub mod teams;
 
-use serde::Deserialize;
-use plist::Integer;
 use crate::developer::DeveloperSession;
+use plist::Integer;
+use serde::Deserialize;
 
 #[allow(dead_code)]
 #[derive(Deserialize, Debug)]
@@ -31,7 +31,8 @@ pub struct QHResponseMeta {
 
 impl QHResponseMeta {
     pub fn to_error(self, url: String) -> crate::Error {
-        let message = self.user_string
+        let message = self
+            .user_string
             .or(self.result_string)
             .unwrap_or_else(|| "Unknown API error".to_string());
 

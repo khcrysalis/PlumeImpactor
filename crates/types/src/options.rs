@@ -45,8 +45,7 @@ impl SignerOptions {
         };
 
         match app {
-            SignerApp::LiveContainer | 
-            SignerApp::LiveContainerAndSideStore => {
+            SignerApp::LiveContainer | SignerApp::LiveContainerAndSideStore => {
                 settings.embedding.single_profile = true;
             }
             _ => {}
@@ -111,7 +110,7 @@ pub enum SignerApp {
     LiveContainer,
     LiveContainerAndSideStore,
     StikDebug,
-    SparseBox
+    SparseBox,
 }
 
 impl SignerApp {
@@ -130,15 +129,22 @@ impl SignerApp {
     }
 
     pub fn supports_pairing_file(&self) -> bool {
-        !matches!(self, SignerApp::Default | SignerApp::LiveContainer | SignerApp::AltStore)
+        !matches!(
+            self,
+            SignerApp::Default | SignerApp::LiveContainer | SignerApp::AltStore
+        )
     }
 
     pub fn pairing_file_path(&self) -> Option<&'static str> {
         use SignerApp::*;
         match self {
-            Antrag | Feather | Protokolle | StikDebug | SparseBox => Some("/Documents/pairingFile.plist"),
+            Antrag | Feather | Protokolle | StikDebug | SparseBox => {
+                Some("/Documents/pairingFile.plist")
+            }
             SideStore => Some("/Documents/ALTPairingFile.mobiledevicepairing"),
-            LiveContainerAndSideStore => Some("/Documents/SideStore/Documents/ALTPairingFile.mobiledevicepairing"),
+            LiveContainerAndSideStore => {
+                Some("/Documents/SideStore/Documents/ALTPairingFile.mobiledevicepairing")
+            }
             _ => None,
         }
     }

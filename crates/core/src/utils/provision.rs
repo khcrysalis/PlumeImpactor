@@ -24,16 +24,18 @@ impl MobileProvision {
     pub fn load_with_bytes(data: Vec<u8>) -> Result<Self, Error> {
         let entitlements = Self::extract_entitlements_from_prov(&data)?;
 
-        Ok(Self {
-            data,
-            entitlements,
-        })
+        Ok(Self { data, entitlements })
     }
 
-    pub fn merge_entitlements(&mut self, binary_path: PathBuf, new_application_id: &str) -> Result<(), Error> {
+    pub fn merge_entitlements(
+        &mut self,
+        binary_path: PathBuf,
+        new_application_id: &str,
+    ) -> Result<(), Error> {
         let macho = MachO::new(&binary_path)?;
         let binary_entitlements = macho
-            .entitlements().clone()
+            .entitlements()
+            .clone()
             .ok_or(Error::ProvisioningEntitlementsUnknown)?;
 
         let new_team_id = self

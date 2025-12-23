@@ -1,19 +1,14 @@
-use tokio::fs;
 use futures::future::try_join_all;
 use plist::Value;
 use std::sync::Arc;
+use tokio::fs;
 
 use plume_core::{
-    CertificateIdentity,
-    MobileProvision,
-    SettingsScope,
-    SigningSettings,
-    UnifiedSigner, developer::DeveloperSession,
+    CertificateIdentity, MobileProvision, SettingsScope, SigningSettings, UnifiedSigner,
+    developer::DeveloperSession,
 };
 
-use crate::{
-    Bundle, BundleType, Error, PlistInfoTrait, SignerApp, SignerMode, SignerOptions,
-};
+use crate::{Bundle, BundleType, Error, PlistInfoTrait, SignerApp, SignerMode, SignerOptions};
 
 pub struct Signer {
     certificate: Option<CertificateIdentity>,
@@ -22,10 +17,7 @@ pub struct Signer {
 }
 
 impl Signer {
-    pub fn new(
-        certificate: Option<CertificateIdentity>,
-        options: SignerOptions,
-    ) -> Self {
+    pub fn new(certificate: Option<CertificateIdentity>, options: SignerOptions) -> Self {
         Self {
             certificate,
             options,
@@ -33,12 +25,17 @@ impl Signer {
         }
     }
 
-    pub async fn modify_bundle(&mut self, bundle: &Bundle, team_id: &Option<String>) -> Result<(), Error> {
+    pub async fn modify_bundle(
+        &mut self,
+        bundle: &Bundle,
+        team_id: &Option<String>,
+    ) -> Result<(), Error> {
         if self.options.mode == SignerMode::None {
             return Ok(());
         }
 
-        let bundles = bundle.collect_bundles_sorted()?
+        let bundles = bundle
+            .collect_bundles_sorted()?
             .into_iter()
             .filter(|b| b.bundle_type().should_have_entitlements())
             .collect::<Vec<_>>();
@@ -74,9 +71,7 @@ impl Signer {
 
         let identifier = bundle.get_bundle_identifier();
 
-        if self.options.mode != SignerMode::Adhoc
-            && self.options.custom_identifier.is_none()
-        {
+        if self.options.mode != SignerMode::Adhoc && self.options.custom_identifier.is_none() {
             if let (Some(identifier), Some(team_id)) = (identifier.as_ref(), team_id.as_ref()) {
                 self.options.custom_identifier = Some(format!("{identifier}.{team_id}"));
             }
@@ -95,23 +90,28 @@ impl Signer {
             || self.options.app == SignerApp::LiveContainerAndSideStore
         {
             if let Some(cert_identity) = &self.certificate {
-                if let (Some(p12_data), Some(serial_number)) = (&cert_identity.p12_data, &cert_identity.serial_number) {
+                if let (Some(p12_data), Some(serial_number)) =
+                    (&cert_identity.p12_data, &cert_identity.serial_number)
+                {
                     match self.options.app {
                         SignerApp::LiveContainerAndSideStore => {
-                            if let Some(embedded_bundle) = bundles.iter()
-                                .find(|b| b.bundle_dir()
-                                .ends_with("SideStoreApp.framework"))
+                            if let Some(embedded_bundle) = bundles
+                                .iter()
+                                .find(|b| b.bundle_dir().ends_with("SideStoreApp.framework"))
                             {
-                                embedded_bundle.set_info_plist_key("ALTCertificateID", &**serial_number)?;
+                                embedded_bundle
+                                    .set_info_plist_key("ALTCertificateID", &**serial_number)?;
                                 fs::write(
                                     embedded_bundle.bundle_dir().join("ALTCertificate.p12"),
                                     p12_data,
-                                ).await?;
+                                )
+                                .await?;
                             }
                         }
                         SignerApp::SideStore | SignerApp::AltStore => {
                             bundle.set_info_plist_key("ALTCertificateID", &**serial_number)?;
-                            fs::write(bundle.bundle_dir().join("ALTCertificate.p12"), p12_data).await?;
+                            fs::write(bundle.bundle_dir().join("ALTCertificate.p12"), p12_data)
+                                .await?;
                         }
                         _ => {}
                     }
@@ -131,7 +131,8 @@ impl Signer {
         if self.options.features.support_liquid_glass {
             bundle.set_info_plist_key("UIDesignRequiresCompatibility", false)?;
 
-            let executable_name = bundle.get_executable()
+            let executable_name = bundle
+                .get_executable()
                 .ok_or(Error::BundleInfoPlistMissing)?;
 
             let executable_path = bundle.bundle_dir().join(&executable_name);
@@ -147,7 +148,7 @@ impl Signer {
     }
 
     pub async fn register_bundle(
-        &mut self, 
+        &mut self,
         bundle: &Bundle,
         session: &DeveloperSession,
         team_id: &String,
@@ -156,7 +157,8 @@ impl Signer {
             return Ok(());
         }
 
-        let bundles = bundle.collect_bundles_sorted()?
+        let bundles = bundle
+            .collect_bundles_sorted()?
             .into_iter()
             .filter(|b| b.bundle_type().should_have_entitlements())
             .collect::<Vec<_>>();
@@ -173,55 +175,85 @@ impl Signer {
             let team_id = team_id_arc.clone();
             let signer_settings = signer_settings.clone();
 
-            if signer_settings.embedding.single_profile && sub_bundle.bundle_dir() != bundle.bundle_dir() {
+            if signer_settings.embedding.single_profile
+                && sub_bundle.bundle_dir() != bundle.bundle_dir()
+            {
                 return None;
             }
-            if *sub_bundle.bundle_type() != BundleType::AppExtension && *sub_bundle.bundle_type() != BundleType::App {
+            if *sub_bundle.bundle_type() != BundleType::AppExtension
+                && *sub_bundle.bundle_type() != BundleType::App
+            {
                 return None;
             }
 
             Some(async move {
-                let bundle_executable_name = sub_bundle.get_executable()
+                let bundle_executable_name = sub_bundle
+                    .get_executable()
                     .ok_or_else(|| Error::Other("Failed to get bundle executable name.".into()))?;
                 let bundle_executable_path = sub_bundle.bundle_dir().join(&bundle_executable_name);
 
                 let macho = plume_core::MachO::new(&bundle_executable_path)?;
 
-                let id = sub_bundle.get_bundle_identifier()
+                let id = sub_bundle
+                    .get_bundle_identifier()
                     .ok_or_else(|| Error::Other("Failed to get bundle identifier.".into()))?;
 
-                session.qh_ensure_app_id(&team_id, &sub_bundle.get_name().unwrap_or_default(), &id).await?;
+                session
+                    .qh_ensure_app_id(&team_id, &sub_bundle.get_name().unwrap_or_default(), &id)
+                    .await?;
 
-                let app_id_id = session.qh_get_app_id(&team_id, &id).await?
+                let app_id_id = session
+                    .qh_get_app_id(&team_id, &id)
+                    .await?
                     .ok_or_else(|| Error::Other("Failed to get ensured app ID.".into()))?;
 
                 if let Some(e) = macho.entitlements().as_ref() {
-                    session.v1_request_capabilities_for_entitlements(&team_id, &id, e).await?;
+                    session
+                        .v1_request_capabilities_for_entitlements(&team_id, &id, e)
+                        .await?;
                 }
 
                 if let Some(app_groups) = macho.app_groups_for_entitlements() {
                     let mut app_group_ids: Vec<String> = Vec::new();
                     for group in &app_groups {
                         let group = format!("{group}.{team_id}");
-                        let group_id = session.qh_ensure_app_group(&team_id, &group, &group).await?;
+                        let group_id = session
+                            .qh_ensure_app_group(&team_id, &group, &group)
+                            .await?;
                         app_group_ids.push(group_id.application_group);
                     }
 
-                    if signer_settings.app == SignerApp::SideStore || signer_settings.app == SignerApp::AltStore {
+                    if signer_settings.app == SignerApp::SideStore
+                        || signer_settings.app == SignerApp::AltStore
+                    {
                         bundle.set_info_plist_key(
                             "ALTAppGroups",
-                            Value::Array(app_groups.iter().map(|s| Value::String(format!("{s}.{team_id}"))).collect())
+                            Value::Array(
+                                app_groups
+                                    .iter()
+                                    .map(|s| Value::String(format!("{s}.{team_id}")))
+                                    .collect(),
+                            ),
                         )?;
                     }
 
-                    session.qh_assign_app_group(&team_id, &app_id_id.app_id_id, &app_group_ids).await?;
+                    session
+                        .qh_assign_app_group(&team_id, &app_id_id.app_id_id, &app_group_ids)
+                        .await?;
                 }
 
-                let profiles = session.qh_get_profile(&team_id, &app_id_id.app_id_id).await?;
+                let profiles = session
+                    .qh_get_profile(&team_id, &app_id_id.app_id_id)
+                    .await?;
                 let profile_data = profiles.provisioning_profile.encoded_profile;
 
-                tokio::fs::write(sub_bundle.bundle_dir().join("embedded.mobileprovision"), &profile_data).await?;
-                let mobile_provision = MobileProvision::load_with_bytes(profile_data.as_ref().to_vec())?;
+                tokio::fs::write(
+                    sub_bundle.bundle_dir().join("embedded.mobileprovision"),
+                    &profile_data,
+                )
+                .await?;
+                let mobile_provision =
+                    MobileProvision::load_with_bytes(profile_data.as_ref().to_vec())?;
                 Ok::<_, Error>(mobile_provision)
             })
         });
@@ -251,7 +283,7 @@ impl Signer {
             log::debug!("Signing bundle: {}", bundle.bundle_dir().display());
             Self::sign_single_bundle(
                 self,
-                bundle, 
+                bundle,
                 &self.provisioning_files,
                 settings.clone(),
                 &entitlements_xml,
@@ -283,11 +315,16 @@ impl Signer {
         // Only Apps and AppExtensions should have entitlements from provisioning profiles
         // Dylibs, frameworks, and other components should be signed without entitlements
         // Skip provisioning profile handling for adhoc signing
-        if self.options.mode != SignerMode::Adhoc && bundle.bundle_type().should_have_entitlements() && !provisioning_files.is_empty() {
+        if self.options.mode != SignerMode::Adhoc
+            && bundle.bundle_type().should_have_entitlements()
+            && !provisioning_files.is_empty()
+        {
             let mut matched_prov = None;
 
             for prov in provisioning_files {
-                if let (Some(bundle_id), Some(team_id)) = (bundle.get_bundle_identifier(), prov.bundle_id()) {
+                if let (Some(bundle_id), Some(team_id)) =
+                    (bundle.get_bundle_identifier(), prov.bundle_id())
+                {
                     if team_id == bundle_id {
                         matched_prov = Some(prov);
                         break;

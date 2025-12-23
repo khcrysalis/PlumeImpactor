@@ -20,7 +20,7 @@ impl AnisetteData {
         Ok(AnisetteData {
             base_headers,
             generated_at: SystemTime::now(),
-            config
+            config,
         })
     }
 
@@ -47,10 +47,10 @@ impl AnisetteData {
         if !self.is_valid() {
             panic!("Invalid data!")
         }
-        
+
         let mut headers = self.base_headers.clone();
         let old_client_info = headers.remove("X-Mme-Client-Info");
-        
+
         if client_info {
             let client_info = match old_client_info {
                 Some(v) => {

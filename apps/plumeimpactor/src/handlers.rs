@@ -1,16 +1,9 @@
-use wxdragon::prelude::*;
-use tokio::sync::{
-    mpsc, 
-    mpsc::error::TryRecvError
-};
-use std::{fs, path::PathBuf, sync::mpsc as std_mpsc};
-use plume_utils::{
-    SignerOptions, 
-    Package, 
-    Device
-};
-use plume_core::store::{AccountStore, GsaAccount};
 use crate::frame::PlumeFrame;
+use plume_core::store::{AccountStore, GsaAccount};
+use plume_utils::{Device, Package, SignerOptions};
+use std::{fs, path::PathBuf, sync::mpsc as std_mpsc};
+use tokio::sync::{mpsc, mpsc::error::TryRecvError};
+use wxdragon::prelude::*;
 
 #[derive(Debug)]
 pub enum PlumeFrameMessage {
@@ -104,7 +97,7 @@ impl PlumeFrameMessageHandler {
                         self.usbmuxd_picker_reconcile_selection();
                     }
                 }
-                
+
                 self.handle_message(PlumeFrameMessage::InstallButtonStateChanged);
             }
             PlumeFrameMessage::DeviceDisconnected(device_id) => {
@@ -117,7 +110,7 @@ impl PlumeFrameMessageHandler {
                     self.usbmuxd_picker_rebuild_contents();
                     self.usbmuxd_picker_reconcile_selection();
                 }
-                
+
                 self.handle_message(PlumeFrameMessage::InstallButtonStateChanged);
             }
             PlumeFrameMessage::PackageSelected(package) => {
@@ -128,11 +121,14 @@ impl PlumeFrameMessageHandler {
                 package.load_into_signer_options(&mut self.signer_settings);
 
                 self.package_selected = Some(package);
-                self.plume_frame.install_page.set_settings(&self.signer_settings, Some(self.package_selected.as_ref().unwrap()));
+                self.plume_frame.install_page.set_settings(
+                    &self.signer_settings,
+                    Some(self.package_selected.as_ref().unwrap()),
+                );
                 self.plume_frame.default_page.panel.hide();
                 self.plume_frame.install_page.panel.show(true);
                 self.plume_frame.frame.layout();
-                
+
                 self.plume_frame.add_ipa_button.enable(false);
             }
             PlumeFrameMessage::PackageDeselected => {
@@ -148,27 +144,29 @@ impl PlumeFrameMessageHandler {
                 self.plume_frame.default_page.panel.show(true);
                 self.plume_frame.frame.layout();
                 self.signer_settings = SignerOptions::default();
-                self.plume_frame.install_page.set_settings(&self.signer_settings, None);
+                self.plume_frame
+                    .install_page
+                    .set_settings(&self.signer_settings, None);
                 self.plume_frame.add_ipa_button.enable(true);
                 self.handle_message(PlumeFrameMessage::InstallButtonStateChanged);
             }
             PlumeFrameMessage::AccountAdded(email) => {
                 let dialog = MessageDialog::builder(
-                    &self.plume_frame.frame, 
-                    &format!("Account {} has been added successfully", email), 
-                    "Account Added"
+                    &self.plume_frame.frame,
+                    &format!("Account {} has been added successfully", email),
+                    "Account Added",
                 )
                 .with_style(MessageDialogStyle::OK | MessageDialogStyle::IconInformation)
                 .build();
                 dialog.show_modal();
-                
+
                 self.plume_frame.login_dialog.dialog.hide();
             }
             PlumeFrameMessage::AccountRemoved(email) => {
                 let dialog = MessageDialog::builder(
-                    &self.plume_frame.frame, 
-                    &format!("Account {} has been removed", email), 
-                    "Account Removed"
+                    &self.plume_frame.frame,
+                    &format!("Account {} has been removed", email),
+                    "Account Removed",
                 )
                 .with_style(MessageDialogStyle::OK | MessageDialogStyle::IconInformation)
                 .build();
@@ -182,7 +180,10 @@ impl PlumeFrameMessageHandler {
                         self.refresh_account_list_ui();
                     }
                     Err(e) => {
-                        self.handle_message(PlumeFrameMessage::Error(format!("Failed to save account: {}", e)));
+                        self.handle_message(PlumeFrameMessage::Error(format!(
+                            "Failed to save account: {}",
+                            e
+                        )));
                     }
                 }
             }
@@ -195,7 +196,10 @@ impl PlumeFrameMessageHandler {
                             self.refresh_account_list_ui();
                         }
                         Err(e) => {
-                            self.handle_message(PlumeFrameMessage::Error(format!("Failed to remove account: {}", e)));
+                            self.handle_message(PlumeFrameMessage::Error(format!(
+                                "Failed to remove account: {}",
+                                e
+                            )));
                         }
                     }
                 }
@@ -208,22 +212,35 @@ impl PlumeFrameMessageHandler {
                             self.refresh_account_list_ui();
                         }
                         Err(e) => {
-                            self.handle_message(PlumeFrameMessage::Error(format!("Failed to select account: {}", e)));
+                            self.handle_message(PlumeFrameMessage::Error(format!(
+                                "Failed to select account: {}",
+                                e
+                            )));
                         }
                     }
                 }
             }
             PlumeFrameMessage::InstallButtonStateChanged => {
-                let export = self.plume_frame.install_page.install_choice.get_selection() == Some(0);
+                let export =
+                    self.plume_frame.install_page.install_choice.get_selection() == Some(0);
                 let should_enable = !self.usbmuxd_device_list.is_empty() || export;
 
                 if export {
-                    self.plume_frame.install_page.install_button.set_label("Export");
+                    self.plume_frame
+                        .install_page
+                        .install_button
+                        .set_label("Export");
                 } else {
-                    self.plume_frame.install_page.install_button.set_label("Install");
+                    self.plume_frame
+                        .install_page
+                        .install_button
+                        .set_label("Install");
                 }
 
-                self.plume_frame.install_page.install_button.enable(should_enable);
+                self.plume_frame
+                    .install_page
+                    .install_button
+                    .enable(should_enable);
             }
             PlumeFrameMessage::AwaitingTwoFactorCode(tx) => {
                 let result = self.plume_frame.create_single_field_dialog(
@@ -232,7 +249,10 @@ impl PlumeFrameMessageHandler {
                 );
 
                 if let Err(e) = tx.send(result) {
-                    self.handle_message(PlumeFrameMessage::Error(format!("Failed to send two-factor code response: {}", e)));
+                    self.handle_message(PlumeFrameMessage::Error(format!(
+                        "Failed to send two-factor code response: {}",
+                        e
+                    )));
                 }
             }
             PlumeFrameMessage::RequestTeamSelection(teams, tx) => {
@@ -243,7 +263,10 @@ impl PlumeFrameMessageHandler {
                 );
 
                 if let Err(e) = tx.send(result) {
-                    self.handle_message(PlumeFrameMessage::Error(format!("Failed to send team selection response: {}", e)));
+                    self.handle_message(PlumeFrameMessage::Error(format!(
+                        "Failed to send team selection response: {}",
+                        e
+                    )));
                 }
             }
             PlumeFrameMessage::WorkStarted => {
@@ -253,7 +276,9 @@ impl PlumeFrameMessageHandler {
                 self.plume_frame.frame.layout();
             }
             PlumeFrameMessage::WorkUpdated(status_text, progress) => {
-                self.plume_frame.work_page.set_status(&status_text, progress);
+                self.plume_frame
+                    .work_page
+                    .set_status(&status_text, progress);
             }
             PlumeFrameMessage::WorkEnded => {
                 self.plume_frame.work_page.set_status("Done.", 100);
@@ -264,9 +289,7 @@ impl PlumeFrameMessageHandler {
                     .with_message("Choose where to save the exported IPA")
                     .with_style(FileDialogStyle::Save)
                     .with_default_file("exported.ipa")
-                    .with_wildcard(
-                        "IPA files (*.ipa)|*.ipa"
-                    )
+                    .with_wildcard("IPA files (*.ipa)|*.ipa")
                     .build();
 
                 if dialog.show_modal() == wxdragon::id::ID_OK {
@@ -341,18 +364,19 @@ impl PlumeFrameMessageHandler {
 
 impl PlumeFrameMessageHandler {
     pub fn refresh_account_list_ui(&self) {
-        let selected_email = self.account_store.selected_account().map(|a| a.email().clone());
+        let selected_email = self
+            .account_store
+            .selected_account()
+            .map(|a| a.email().clone());
         let mut account_list = Vec::new();
-        
+
         for (email, account) in self.account_store.accounts() {
             let is_selected = selected_email.as_ref() == Some(email);
-            account_list.push((
-                email.clone(),
-                account.first_name().clone(),
-                is_selected,
-            ));
+            account_list.push((email.clone(), account.first_name().clone(), is_selected));
         }
-        
-        self.plume_frame.settings_dialog.refresh_account_list(account_list);
+
+        self.plume_frame
+            .settings_dialog
+            .refresh_account_list(account_list);
     }
 }

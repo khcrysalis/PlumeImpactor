@@ -1,15 +1,15 @@
 use std::fmt;
 use std::path::{Component, Path, PathBuf};
 
-use idevice::usbmuxd::{Connection, UsbmuxdAddr, UsbmuxdDevice};
-use idevice::lockdown::LockdownClient;
 use idevice::IdeviceService;
+use idevice::lockdown::LockdownClient;
+use idevice::usbmuxd::{Connection, UsbmuxdAddr, UsbmuxdDevice};
 use idevice::utils::installation;
 
 use crate::Error;
-use idevice::usbmuxd::UsbmuxdConnection;
-use idevice::house_arrest::HouseArrestClient;
 use idevice::afc::opcode::AfcFopenMode;
+use idevice::house_arrest::HouseArrestClient;
+use idevice::usbmuxd::UsbmuxdConnection;
 
 pub const CONNECTION_LABEL: &str = "plume_info";
 pub const INSTALLATION_LABEL: &str = "plume_install";
@@ -39,7 +39,7 @@ impl Device {
         let name = Self::get_name_from_usbmuxd_device(&usbmuxd_device)
             .await
             .unwrap_or_default();
-        
+
         Device {
             name,
             udid: usbmuxd_device.udid.clone(),
@@ -47,29 +47,43 @@ impl Device {
             usbmuxd_device: Some(usbmuxd_device),
         }
     }
-    
-    async fn get_name_from_usbmuxd_device(
-        device: &UsbmuxdDevice,
-    ) -> Result<String, Error> {
-        let mut lockdown = LockdownClient::connect(&device.to_provider(UsbmuxdAddr::default(), CONNECTION_LABEL)).await?;
+
+    async fn get_name_from_usbmuxd_device(device: &UsbmuxdDevice) -> Result<String, Error> {
+        let mut lockdown =
+            LockdownClient::connect(&device.to_provider(UsbmuxdAddr::default(), CONNECTION_LABEL))
+                .await?;
         let values = lockdown.get_value(None, None).await?;
         Ok(get_dict_string!(values, "DeviceName"))
     }
 
-    pub async fn install_pairing_record(&self, identifier: &String, path: &str) -> Result<(), Error> {
+    pub async fn install_pairing_record(
+        &self,
+        identifier: &String,
+        path: &str,
+    ) -> Result<(), Error> {
         if self.usbmuxd_device.is_none() {
             return Err(Error::Other("Device is not connected via USB".to_string()));
         }
 
         let mut usbmuxd = UsbmuxdConnection::default().await?;
-        let provider = self.usbmuxd_device.clone().unwrap().to_provider(UsbmuxdAddr::default(), HOUSE_ARREST_LABEL);
+        let provider = self
+            .usbmuxd_device
+            .clone()
+            .unwrap()
+            .to_provider(UsbmuxdAddr::default(), HOUSE_ARREST_LABEL);
         let mut pairing_file = usbmuxd.get_pair_record(&self.udid).await?;
 
         // saving pairing record requires enabling wifi debugging
         // since operations are done over wifi
         let mut lc = LockdownClient::connect(&provider).await?;
         lc.start_session(&pairing_file).await.ok();
-        lc.set_value("EnableWifiDebugging", true.into(), Some("com.apple.mobile.wireless_lockdown")).await.ok();
+        lc.set_value(
+            "EnableWifiDebugging",
+            true.into(),
+            Some("com.apple.mobile.wireless_lockdown"),
+        )
+        .await
+        .ok();
 
         pairing_file.udid = Some(self.udid.clone());
 
@@ -99,7 +113,11 @@ impl Device {
         Ok(())
     }
 
-    pub async fn install_app<F, Fut>(&self, app_path: &PathBuf, progress_callback: F) -> Result<(), Error>
+    pub async fn install_app<F, Fut>(
+        &self,
+        app_path: &PathBuf,
+        progress_callback: F,
+    ) -> Result<(), Error>
     where
         F: FnMut(i32) -> Fut + Send + Clone + 'static,
         Fut: std::future::Future<Output = ()> + Send,
@@ -122,27 +140,27 @@ impl Device {
 
         let state = ();
 
-        installation::install_package_with_callback(
-            &provider,
-            app_path,
-            None,
-            callback,
-            state,
-        ).await?;
+        installation::install_package_with_callback(&provider, app_path, None, callback, state)
+            .await?;
 
         Ok(())
     }
 
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    pub async fn install_app_mac(&self, app_path: &PathBuf) -> Result<(), Error>{
+    pub async fn install_app_mac(&self, app_path: &PathBuf) -> Result<(), Error> {
+        use crate::copy_dir_recursively;
         use std::env;
         use tokio::fs;
         use uuid::Uuid;
-        use crate::copy_dir_recursively;
 
-        let stage_dir = env::temp_dir().join(format!("plume_mac_stage_{}", Uuid::new_v4().to_string().to_uppercase()));
-        let app_name = app_path.file_name().ok_or(Error::Other("Invalid app path".to_string()))?;
-        
+        let stage_dir = env::temp_dir().join(format!(
+            "plume_mac_stage_{}",
+            Uuid::new_v4().to_string().to_uppercase()
+        ));
+        let app_name = app_path
+            .file_name()
+            .ok_or(Error::Other("Invalid app path".to_string()))?;
+
         // iOS Apps on macOS need to be wrapped in a special structure, more specifically
         // ```
         // LiveContainer.app
@@ -154,17 +172,24 @@ impl Device {
 
         let outer_app_dir = stage_dir.join(app_name);
         let wrapper_dir = outer_app_dir.join("Wrapper");
-        
+
         fs::create_dir_all(&wrapper_dir).await?;
-        
+
         copy_dir_recursively(app_path, &wrapper_dir.join(app_name)).await?;
 
         let wrapped_bundle_path = outer_app_dir.join("WrappedBundle");
-        fs::symlink(PathBuf::from("Wrapper").join(app_name), &wrapped_bundle_path).await?;
-        
+        fs::symlink(
+            PathBuf::from("Wrapper").join(app_name),
+            &wrapped_bundle_path,
+        )
+        .await?;
+
         let applications_dir = PathBuf::from("/Applications").join(app_name);
-        fs::rename(&outer_app_dir, &applications_dir).await
-            .map_err(|_| Error::BundleFailedToCopy(applications_dir.to_string_lossy().into_owned()))?;
+        fs::rename(&outer_app_dir, &applications_dir)
+            .await
+            .map_err(|_| {
+                Error::BundleFailedToCopy(applications_dir.to_string_lossy().into_owned())
+            })?;
 
         Ok(())
     }
@@ -196,6 +221,6 @@ pub async fn get_device_for_id(device_id: &str) -> Result<Device, Error> {
         .into_iter()
         .find(|d| d.device_id.to_string() == device_id)
         .ok_or_else(|| Error::Other(format!("Device ID {device_id} not found")))?;
-    
+
     Ok(Device::new(usbmuxd_device).await)
 }

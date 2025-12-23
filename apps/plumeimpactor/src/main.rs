@@ -1,13 +1,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod frame;
-mod pages;
 mod handlers;
+mod pages;
 
 #[tokio::main]
 async fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
-    _ = rustls::crypto::ring::default_provider().install_default().unwrap();
+    _ = rustls::crypto::ring::default_provider()
+        .install_default()
+        .unwrap();
 
     let _ = wxdragon::main(|_| {
         #[cfg(target_os = "windows")]

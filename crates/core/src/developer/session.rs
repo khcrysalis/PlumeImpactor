@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use omnisette::AnisetteConfiguration;
 use reqwest::header::HeaderName;
+use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use plist::{Dictionary, Value};
@@ -25,7 +25,14 @@ pub struct DeveloperSession {
 
 impl DeveloperSession {
     pub async fn using_account(account: Account) -> Result<Self, Error> {
-        let adsid = account.spd.as_ref().unwrap().get("adsid").unwrap().as_string().unwrap();
+        let adsid = account
+            .spd
+            .as_ref()
+            .unwrap()
+            .get("adsid")
+            .unwrap()
+            .as_string()
+            .unwrap();
         let xcode_gs_token = account
             .get_app_token("com.apple.gs.xcode.auth")
             .await?
@@ -40,16 +47,12 @@ impl DeveloperSession {
     }
 
     pub async fn new(
-        adsid: String, 
+        adsid: String,
         xcode_gs_token: String,
         config: AnisetteConfiguration,
     ) -> Result<Self, Error> {
         let anisette = AnisetteData::new(config).await?;
-        Self::new_with_anisette(
-            adsid,
-            xcode_gs_token,
-            Arc::new(Mutex::new(anisette)),
-        ).await
+        Self::new_with_anisette(adsid, xcode_gs_token, Arc::new(Mutex::new(anisette))).await
     }
 
     pub async fn new_with_anisette(
@@ -95,7 +98,10 @@ impl DeveloperSession {
         self.insert_anisette_headers(&mut headers).await;
 
         let mut body = body.unwrap_or_default();
-        body.insert("requestId".into(), Value::String(Uuid::new_v4().to_string().to_uppercase()));
+        body.insert(
+            "requestId".into(),
+            Value::String(Uuid::new_v4().to_string().to_uppercase()),
+        );
 
         let request_builder = self.client.post(url).headers(headers);
 
@@ -110,7 +116,8 @@ impl DeveloperSession {
 
         log::debug!("QH Response from {}: {:?}", url, response_dict);
 
-        let response_meta: QHResponseMeta = plist::from_value(&Value::Dictionary(response_dict.clone()))?;
+        let response_meta: QHResponseMeta =
+            plist::from_value(&Value::Dictionary(response_dict.clone()))?;
 
         if response_meta.result_code.as_signed().unwrap_or(0) != 0 {
             return Err(response_meta.to_error(url.to_string()));
@@ -126,18 +133,29 @@ impl DeveloperSession {
         request_type: Option<RequestType>,
     ) -> Result<serde_json::Value, Error> {
         let mut headers = HeaderMap::new();
-        headers.insert("Content-Type", HeaderValue::from_static("application/vnd.api+json"));
-        headers.insert("Accept", HeaderValue::from_static("application/json, text/plain, */*"));
-        headers.insert("X-Requested-With", HeaderValue::from_static("XMLHttpRequest"));
+        headers.insert(
+            "Content-Type",
+            HeaderValue::from_static("application/vnd.api+json"),
+        );
+        headers.insert(
+            "Accept",
+            HeaderValue::from_static("application/json, text/plain, */*"),
+        );
+        headers.insert(
+            "X-Requested-With",
+            HeaderValue::from_static("XMLHttpRequest"),
+        );
         self.insert_identity_headers(&mut headers).await;
         if let Some(RequestType::Get) = request_type {
             headers.insert("X-HTTP-Method-Override", HeaderValue::from_static("GET"));
         }
         self.insert_anisette_headers(&mut headers).await;
 
-        let mut request_builder  = match request_type {
+        let mut request_builder = match request_type {
             Some(RequestType::Patch) => self.client.patch(url).headers(headers.clone()),
-            Some(RequestType::Post) | _ if body.is_some() => self.client.post(url).headers(headers.clone()),
+            Some(RequestType::Post) | _ if body.is_some() => {
+                self.client.post(url).headers(headers.clone())
+            }
             _ => self.client.get(url).headers(headers.clone()),
         };
 
@@ -151,7 +169,7 @@ impl DeveloperSession {
         let response_text = response.text().await?;
 
         log::debug!("V1 Response from {}: {}", url, response_text);
-        
+
         let response_json: serde_json::Value = serde_json::from_str(&response_text)?;
 
         if let Ok(errors) = serde_json::from_value::<V1ErrorResponse>(response_json.clone()) {
@@ -165,8 +183,14 @@ impl DeveloperSession {
     async fn insert_identity_headers(&self, headers: &mut HeaderMap) {
         headers.insert("Accept-Language", HeaderValue::from_static("en-us"));
         headers.insert("User-Agent", HeaderValue::from_static("Xcode"));
-        headers.insert("X-Apple-I-Identity-Id", HeaderValue::from_str(&self.adsid).unwrap());
-        headers.insert("X-Apple-GS-Token", HeaderValue::from_str(&self.xcode_gs_token).unwrap());
+        headers.insert(
+            "X-Apple-I-Identity-Id",
+            HeaderValue::from_str(&self.adsid).unwrap(),
+        );
+        headers.insert(
+            "X-Apple-GS-Token",
+            HeaderValue::from_str(&self.xcode_gs_token).unwrap(),
+        );
     }
 
     async fn insert_anisette_headers(&self, headers: &mut HeaderMap) {

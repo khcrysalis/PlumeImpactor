@@ -1,15 +1,15 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-use clap::{Args, Subcommand};
 use anyhow::{Ok, Result};
+use clap::{Args, Subcommand};
 use dialoguer::Select;
 
 use plume_core::{
-    AnisetteConfiguration, 
+    AnisetteConfiguration,
     auth::Account,
     developer::DeveloperSession,
-    store::{AccountStatus, AccountStore}
+    store::{AccountStatus, AccountStore},
 };
 use plume_shared::get_data_path;
 
@@ -120,24 +120,31 @@ pub async fn get_authenticated_account() -> Result<DeveloperSession> {
     let settings_path = get_settings_path();
     let settings = AccountStore::load(&Some(settings_path.clone())).await?;
 
-    let gsa_account = settings.selected_account()
-        .ok_or_else(|| anyhow::anyhow!("No account selected. Please login first using 'plumesign account login'"))?
+    let gsa_account = settings
+        .selected_account()
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "No account selected. Please login first using 'plumesign account login'"
+            )
+        })?
         .clone();
 
     if *gsa_account.status() == AccountStatus::NeedsReauth {
-        return Err(anyhow::anyhow!("Account is invalid. Please login again using 'plumesign account login'"));
+        return Err(anyhow::anyhow!(
+            "Account is invalid. Please login again using 'plumesign account login'"
+        ));
     }
-    
-    let anisette_config = AnisetteConfiguration::default()
-        .set_configuration_path(get_data_path());
+
+    let anisette_config = AnisetteConfiguration::default().set_configuration_path(get_data_path());
 
     log::info!("Restoring session for {}...", gsa_account.email());
 
     let session = DeveloperSession::new(
-        gsa_account.adsid().clone(), 
-        gsa_account.xcode_gs_token().clone(), 
+        gsa_account.adsid().clone(),
+        gsa_account.xcode_gs_token().clone(),
         anisette_config,
-    ).await?;
+    )
+    .await?;
 
     Ok(session)
 }
@@ -146,13 +153,14 @@ async fn login(args: LoginArgs) -> Result<()> {
     let tfa_closure = || -> std::result::Result<String, String> {
         log::info!("Enter 2FA code: ");
         let mut input = String::new();
-        std::io::stdin().read_line(&mut input).map_err(|e| e.to_string())?;
+        std::io::stdin()
+            .read_line(&mut input)
+            .map_err(|e| e.to_string())?;
         std::result::Result::Ok(input.trim().to_string())
     };
 
-    let anisette_config = AnisetteConfiguration::default()
-        .set_configuration_path(get_data_path());
-    
+    let anisette_config = AnisetteConfiguration::default().set_configuration_path(get_data_path());
+
     let username = if let Some(user) = args.username {
         user
     } else {
@@ -161,28 +169,30 @@ async fn login(args: LoginArgs) -> Result<()> {
         std::io::stdin().read_line(&mut input)?;
         input.trim().to_string()
     };
-    
+
     let password = if let Some(pass) = args.password {
         pass
     } else {
         print!("Enter password: ");
         std::io::stdout().flush()?;
-        
+
         let mut input = String::new();
         std::io::stdin().read_line(&mut input)?;
         input.trim().to_string()
     };
-        
+
     let login_closure = || -> std::result::Result<(String, String), String> {
         std::result::Result::Ok((username.clone(), password.clone()))
     };
 
     println!("Logging in...");
     let account = Account::login(login_closure, tfa_closure, anisette_config).await?;
-    
+
     let settings_path = get_settings_path();
     let mut settings = AccountStore::load(&Some(settings_path.clone())).await?;
-    settings.accounts_add_from_session(username, account).await?;
+    settings
+        .accounts_add_from_session(username, account)
+        .await?;
 
     log::info!("Successfully logged in and account saved.");
 
@@ -192,16 +202,17 @@ async fn login(args: LoginArgs) -> Result<()> {
 async fn logout() -> Result<()> {
     let settings_path = get_settings_path();
     let mut settings = AccountStore::load(&Some(settings_path.clone())).await?;
-    
-    let email = settings.selected_account()
+
+    let email = settings
+        .selected_account()
         .ok_or_else(|| anyhow::anyhow!("No account currently logged in"))?
         .email()
         .clone();
-    
+
     settings.accounts_remove(&email).await?;
-    
+
     log::info!("Successfully logged out and removed account.");
-    
+
     Ok(())
 }
 
@@ -214,12 +225,10 @@ async fn certificates(args: CertificatesArgs) -> Result<()> {
         args.team_id.unwrap()
     };
 
-    let p = session.qh_list_certs(&team_id)
-        .await?
-        .certificates;
-    
+    let p = session.qh_list_certs(&team_id).await?.certificates;
+
     log::info!("{:#?}", p);
-    
+
     Ok(())
 }
 
@@ -232,9 +241,7 @@ async fn devices(args: DevicesArgs) -> Result<()> {
         args.team_id.unwrap()
     };
 
-    let p = session.qh_list_devices(&team_id)
-        .await?
-        .devices;
+    let p = session.qh_list_devices(&team_id).await?.devices;
 
     log::info!("{:#?}", p);
 
@@ -250,7 +257,8 @@ async fn register_device(args: RegisterDeviceArgs) -> Result<()> {
         args.team_id.unwrap()
     };
 
-    let p = session.qh_add_device(&team_id, &args.name, &args.udid)
+    let p = session
+        .qh_add_device(&team_id, &args.name, &args.udid)
         .await?
         .device;
 
@@ -266,14 +274,12 @@ pub async fn teams(session: &DeveloperSession) -> Result<String> {
         return Ok(teams[0].team_id.clone());
     }
 
-    let team_names: Vec<String> = teams.iter()
+    let team_names: Vec<String> = teams
+        .iter()
         .map(|t| format!("{} ({})", t.name, t.team_id))
         .collect();
-    
-    let selection = Select::new()
-        .items(&team_names)
-        .default(0)
-        .interact()?;
+
+    let selection = Select::new().items(&team_names).default(0).interact()?;
 
     Ok(teams[selection].team_id.clone())
 }
@@ -287,9 +293,7 @@ pub async fn app_ids(args: AppIdsArgs) -> Result<()> {
         args.team_id.unwrap()
     };
 
-    let p = session.v1_list_app_ids(&team_id)
-        .await?
-        .data;
+    let p = session.v1_list_app_ids(&team_id).await?.data;
 
     log::info!("{:#?}", p);
 
@@ -299,47 +303,55 @@ pub async fn app_ids(args: AppIdsArgs) -> Result<()> {
 async fn list_accounts() -> Result<()> {
     let settings_path = get_settings_path();
     let settings = AccountStore::load(&Some(settings_path)).await?;
-    
+
     let accounts = settings.accounts();
-    
+
     if accounts.is_empty() {
         log::info!("No accounts found. Use 'account login' to add an account.");
         return Ok(());
     }
-    
+
     let selected_email = settings.selected_account().map(|a| a.email().clone());
-    
+
     log::info!("Saved accounts:");
     for (email, account) in accounts {
         let status_str = match account.status() {
             AccountStatus::Valid => "Valid",
             AccountStatus::NeedsReauth => "Needs Re-auth",
         };
-        
-        let selected = if Some(email) == selected_email.as_ref() { "(selected)" } else { "" };
 
-        log::info!(" [{}] {} - {} {}", 
+        let selected = if Some(email) == selected_email.as_ref() {
+            "(selected)"
+        } else {
+            ""
+        };
+
+        log::info!(
+            " [{}] {} - {} {}",
             status_str,
             account.first_name(),
             email,
             selected
         );
     }
-    
+
     Ok(())
 }
 
 async fn switch_account(args: SwitchArgs) -> Result<()> {
     let settings_path = get_settings_path();
     let mut settings = AccountStore::load(&Some(settings_path)).await?;
-    
+
     if settings.get_account(&args.email).is_none() {
-        return Err(anyhow::anyhow!("Account '{}' not found. Use 'account list' to see available accounts.", args.email));
+        return Err(anyhow::anyhow!(
+            "Account '{}' not found. Use 'account list' to see available accounts.",
+            args.email
+        ));
     }
-    
+
     settings.account_select(&args.email).await?;
-    
+
     log::info!("Switched to account: {}", args.email);
-    
+
     Ok(())
 }

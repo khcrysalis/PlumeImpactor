@@ -1,5 +1,5 @@
 use plist::Dictionary;
-use serde::{Deserialize};
+use serde::Deserialize;
 use serde_json::json;
 
 use super::{DeveloperSession, RequestType};
@@ -8,31 +8,31 @@ use crate::developer_endpoint;
 use crate::Error;
 use std::collections::HashSet;
 
-const FREE_DEVELOPER_ACCOUNT_UNALLOWED_CAPABILITIES: &[&str] = &[
-    "AUTOFILL_CREDENTIAL_PROVIDER",
-    "APPLE_ID_AUTH",
-];
+const FREE_DEVELOPER_ACCOUNT_UNALLOWED_CAPABILITIES: &[&str] =
+    &["AUTOFILL_CREDENTIAL_PROVIDER", "APPLE_ID_AUTH"];
 
 impl DeveloperSession {
     pub async fn v1_list_capabilities(&self, team: &String) -> Result<CapabilitiesResponse, Error> {
         let endpoint = developer_endpoint!("/v1/capabilities");
 
-        let body = json!({ 
+        let body = json!({
             "teamId": team,
             "urlEncodedQueryParams": "filter[platform]=IOS"
         });
 
-        let response = self.v1_send_request(&endpoint, Some(body), Some(RequestType::Get)).await?;
+        let response = self
+            .v1_send_request(&endpoint, Some(body), Some(RequestType::Get))
+            .await?;
         let response_data: CapabilitiesResponse = serde_json::from_value(response)?;
-        
+
         Ok(response_data)
     }
 
     pub async fn v1_request_capabilities_for_entitlements(
-        &self, 
+        &self,
         team: &String,
-        id: &String, 
-        entitlements: &Dictionary
+        id: &String,
+        entitlements: &Dictionary,
     ) -> Result<(), Error> {
         let capabilities = self.v1_list_capabilities(team).await?.data;
         let entitlement_keys: HashSet<&str> = entitlements.keys().map(|k| k.as_str()).collect();
@@ -42,17 +42,17 @@ impl DeveloperSession {
             .iter()
             .filter(|cap| !FREE_DEVELOPER_ACCOUNT_UNALLOWED_CAPABILITIES.contains(&cap.id.as_str()))
             .filter_map(|cap| {
-                cap.attributes.entitlements.as_ref()?.iter()
+                cap.attributes
+                    .entitlements
+                    .as_ref()?
+                    .iter()
                     .find(|e| entitlement_keys.contains(e.profile_key.as_str()))
                     .map(|_| cap.id.clone())
             })
             .collect();
 
-        self.v1_update_app_id(
-            team,
-            id,
-            capabilities_to_enable.clone(),
-        ).await?;
+        self.v1_update_app_id(team, id, capabilities_to_enable.clone())
+            .await?;
 
         Ok(())
     }

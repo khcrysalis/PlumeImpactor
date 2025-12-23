@@ -1,9 +1,9 @@
 use clap::{Parser, Subcommand};
 
-pub mod sign;
-pub mod macho;
 pub mod account;
 pub mod device;
+pub mod macho;
+pub mod sign;
 
 #[derive(Debug, Parser)]
 #[command(

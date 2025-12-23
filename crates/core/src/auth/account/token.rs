@@ -5,9 +5,10 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use crate::Error;
 use sha2::Sha256;
 
-use crate::auth::{Account, AppToken, AuthTokenRequest, AuthTokenRequestBody, GSA_ENDPOINT, RequestHeader};
 use crate::auth::account::{check_error, parse_response};
-
+use crate::auth::{
+    Account, AppToken, AuthTokenRequest, AuthTokenRequestBody, GSA_ENDPOINT, RequestHeader,
+};
 
 impl Account {
     pub async fn get_app_token(&self, app_name: &str) -> Result<AppToken, Error> {
@@ -96,7 +97,7 @@ impl Account {
         }
         if iv.len() != 16 {
             return Err(Error::Parse);
-        }   
+        }
         // TODO: fucking botan
         let mut cipher = Cipher::new("AES-256/GCM", botan::CipherDirection::Decrypt)
             .map_err(|_| Error::Parse)?;
@@ -132,7 +133,7 @@ impl Account {
             app: app_name.to_string(),
         })
     }
-    
+
     fn create_checksum(session_key: &Vec<u8>, dsid: &str, app_name: &str) -> Vec<u8> {
         Hmac::<Sha256>::new_from_slice(&session_key)
             .unwrap()

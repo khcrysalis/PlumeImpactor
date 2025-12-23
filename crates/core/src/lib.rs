@@ -3,21 +3,11 @@ pub mod developer;
 pub mod store;
 mod utils;
 
-pub use apple_codesign::{
-    SigningSettings,
-    SettingsScope,
-    UnifiedSigner,
-    AppleCodesignError
-};
+pub use apple_codesign::{AppleCodesignError, SettingsScope, SigningSettings, UnifiedSigner};
 
 pub use omnisette::AnisetteConfiguration;
 
-pub use utils::{
-    MachO,
-    MachOExt,
-    MobileProvision,
-    CertificateIdentity
-};
+pub use utils::{CertificateIdentity, MachO, MachOExt, MobileProvision};
 
 use thiserror::Error as ThisError;
 #[derive(Debug, ThisError)]
@@ -84,6 +74,6 @@ pub fn client() -> Result<reqwest::Client, Error> {
         .http1_title_case_headers()
         .connection_verbose(true)
         .build()?;
-    
+
     Ok(client)
 }

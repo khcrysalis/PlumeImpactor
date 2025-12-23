@@ -1,18 +1,18 @@
-use serde::Deserialize;
 use plist::{Date, Integer, Value};
+use serde::Deserialize;
 
 use crate::Error;
 
-use crate::developer_endpoint;
 use super::{DeveloperSession, QHResponseMeta};
+use crate::developer_endpoint;
 
 impl DeveloperSession {
     pub async fn qh_list_teams(&self) -> Result<TeamsResponse, Error> {
         let endpoint = developer_endpoint!("/QH65B2/listTeams.action");
-        
+
         let response = self.qh_send_request(&endpoint, None).await?;
         let response_data: TeamsResponse = plist::from_value(&Value::Dictionary(response))?;
-        
+
         Ok(response_data)
     }
 }

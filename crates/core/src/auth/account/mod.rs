@@ -38,7 +38,6 @@ pub fn check_error(res: &plist::Dictionary) -> Result<(), Error> {
     Ok(())
 }
 
-
 pub fn decrypt_cbc(usr: &SrpClientVerifier<Sha256>, data: &[u8]) -> Vec<u8> {
     let extra_data_key = create_session_key(usr, "extra data key:");
     let extra_data_iv = create_session_key(usr, "extra data iv:");

@@ -1,14 +1,10 @@
-use std::{
-    env, 
-    fs, 
-    io::Read
-};
-use std::path::PathBuf;
-use plist::Dictionary;
-use uuid::Uuid;
-use zip::ZipArchive;
 use super::{Bundle, PlistInfoTrait};
 use crate::{Error, SignerApp, SignerOptions};
+use plist::Dictionary;
+use std::path::PathBuf;
+use std::{env, fs, io::Read};
+use uuid::Uuid;
+use zip::ZipArchive;
 use zip::write::FileOptions;
 
 #[derive(Debug, Clone)]
@@ -22,7 +18,10 @@ pub struct Package {
 
 impl Package {
     pub fn new(package_file: PathBuf) -> Result<Self, Error> {
-        let stage_dir = env::temp_dir().join(format!("plume_stage_{:08}", Uuid::new_v4().to_string().to_uppercase()));
+        let stage_dir = env::temp_dir().join(format!(
+            "plume_stage_{:08}",
+            Uuid::new_v4().to_string().to_uppercase()
+        ));
         let out_package_file = stage_dir.join("stage.ipa");
 
         fs::create_dir_all(&stage_dir).ok();
@@ -34,7 +33,8 @@ impl Package {
             .filter_map(|i| archive.by_index(i).ok().map(|f| f.name().to_string()))
             .collect::<Vec<_>>();
 
-        let info_plist_dictionary = Self::get_info_plist_from_archive(&out_package_file, &archive_entries)?;
+        let info_plist_dictionary =
+            Self::get_info_plist_from_archive(&out_package_file, &archive_entries)?;
 
         Ok(Self {
             package_file: out_package_file,
@@ -58,7 +58,11 @@ impl Package {
 
         let info_plist_path = archive_entries
             .iter()
-            .find(|entry| entry.starts_with("Payload/") && entry.ends_with("/Info.plist") && entry.matches('/').count() == 2)
+            .find(|entry| {
+                entry.starts_with("Payload/")
+                    && entry.ends_with("/Info.plist")
+                    && entry.matches('/').count() == 2
+            })
             .ok_or(Error::PackageInfoPlistMissing)?;
 
         let mut plist_file = archive.by_name(info_plist_path)?;
@@ -67,12 +71,12 @@ impl Package {
 
         Ok(plist::from_bytes(&plist_data)?)
     }
-    
+
     pub fn get_package_bundle(&self) -> Result<Bundle, Error> {
         let file = fs::File::open(&self.package_file)?;
         let mut archive = ZipArchive::new(file)?;
         archive.extract(&self.stage_dir)?;
-        
+
         let app_dir = fs::read_dir(&self.stage_payload_dir)?
             .filter_map(Result::ok)
             .map(|e| e.path())
@@ -94,11 +98,10 @@ impl Package {
         let zip_file_path = self.stage_dir.join("resigned.ipa");
         let file = fs::File::create(&zip_file_path)?;
         let mut zip = zip::ZipWriter::new(file);
-        let options = FileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated);
+        let options = FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
         let payload_dir = self.stage_payload_dir;
-        
+
         fn add_dir_to_zip(
             zip: &mut zip::ZipWriter<fs::File>,
             path: &PathBuf,
@@ -108,7 +111,8 @@ impl Package {
             for entry in fs::read_dir(path)? {
                 let entry = entry?;
                 let entry_path = entry.path();
-                let name = entry_path.strip_prefix(prefix)
+                let name = entry_path
+                    .strip_prefix(prefix)
                     .map_err(|_| Error::PackageInfoPlistMissing)?
                     .to_string_lossy()
                     .to_string();
@@ -139,7 +143,8 @@ impl Package {
 // TODO: make bundle and package share a common trait for plist info access
 macro_rules! get_plist_dict_value {
     ($self:ident, $key:expr) => {{
-        $self.info_plist_dictionary
+        $self
+            .info_plist_dictionary
             .get($key)
             .and_then(|v| v.as_string())
             .map(|s| s.to_string())
@@ -175,7 +180,11 @@ impl Package {
         &'slf self,
         settings: &'settings mut SignerOptions,
     ) {
-        let app = if self.archive_entries.iter().any(|entry| entry.contains("SideStoreApp.framework")) {
+        let app = if self
+            .archive_entries
+            .iter()
+            .any(|entry| entry.contains("SideStoreApp.framework"))
+        {
             SignerApp::LiveContainerAndSideStore
         } else {
             SignerApp::from_bundle_identifier(self.get_bundle_identifier().as_deref())

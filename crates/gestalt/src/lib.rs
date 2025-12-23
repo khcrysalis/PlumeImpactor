@@ -15,10 +15,7 @@ const UTF8: u32 = 0x0800_0100;
 unsafe extern "C" {
     pub fn MGCopyAnswer(key: CFStringRef) -> CFTypeRef;
 
-    pub fn CFStringGetCStringPtr(
-        string: CFStringRef,
-        encoding: u32,
-    ) -> *const c_char;
+    pub fn CFStringGetCStringPtr(string: CFStringRef, encoding: u32) -> *const c_char;
 
     pub fn CFStringGetCString(
         string: CFStringRef,

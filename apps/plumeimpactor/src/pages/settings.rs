@@ -1,7 +1,7 @@
 use wxdragon::prelude::*;
 
-use crate::frame::PlumeFrame;
 use super::DIALOG_SIZE;
+use crate::frame::PlumeFrame;
 
 #[derive(Clone)]
 pub struct LoginDialog {
@@ -25,7 +25,12 @@ pub fn create_login_dialog(parent: &Window) -> LoginDialog {
         .with_label("       Email:")
         .build();
     let email_field = TextCtrl::builder(&dialog).build();
-    email_row.add(&email_label, 0, SizerFlag::AlignCenterVertical | SizerFlag::All, 4);
+    email_row.add(
+        &email_label,
+        0,
+        SizerFlag::AlignCenterVertical | SizerFlag::All,
+        4,
+    );
     email_row.add(&email_field, 1, SizerFlag::Expand | SizerFlag::Right, 8);
     sizer.add_sizer(&email_row, 0, SizerFlag::Expand | SizerFlag::All, 4);
 
@@ -34,7 +39,12 @@ pub fn create_login_dialog(parent: &Window) -> LoginDialog {
     let password_field = TextCtrl::builder(&dialog)
         .with_style(TextCtrlStyle::Password)
         .build();
-    password_row.add(&password_label, 0, SizerFlag::AlignCenterVertical | SizerFlag::All, 4);
+    password_row.add(
+        &password_label,
+        0,
+        SizerFlag::AlignCenterVertical | SizerFlag::All,
+        4,
+    );
     password_row.add(&password_field, 1, SizerFlag::Expand | SizerFlag::Right, 8);
     sizer.add_sizer(&password_row, 0, SizerFlag::Expand | SizerFlag::All, 4);
 
@@ -99,32 +109,49 @@ pub fn create_settings_dialog(parent: &Window) -> SettingsDialog {
         .build();
 
     let main_sizer = BoxSizer::builder(Orientation::Vertical).build();
-    
+
     main_sizer.add_spacer(16);
 
     let accounts_label = StaticText::builder(&dialog)
         .with_label("Apple ID Accounts")
         .build();
-    main_sizer.add(&accounts_label, 0, SizerFlag::Left | SizerFlag::Left | SizerFlag::Right, 16);
-    
+    main_sizer.add(
+        &accounts_label,
+        0,
+        SizerFlag::Left | SizerFlag::Left | SizerFlag::Right,
+        16,
+    );
+
     main_sizer.add_spacer(8);
 
     let account_list = CheckListBox::builder(&dialog).build();
-    main_sizer.add(&account_list, 1, SizerFlag::Expand | SizerFlag::Left | SizerFlag::Right, 16);
+    main_sizer.add(
+        &account_list,
+        1,
+        SizerFlag::Expand | SizerFlag::Left | SizerFlag::Right,
+        16,
+    );
 
     main_sizer.add_spacer(12);
 
     let button_row = BoxSizer::builder(Orientation::Horizontal).build();
     let add_button = Button::builder(&dialog).with_label("Add Account").build();
-    let remove_button = Button::builder(&dialog).with_label("Remove Account").build();
-    
+    let remove_button = Button::builder(&dialog)
+        .with_label("Remove Account")
+        .build();
+
     button_row.add(&add_button, 0, SizerFlag::All, 0);
     button_row.add_spacer(8);
     button_row.add(&remove_button, 0, SizerFlag::All, 0);
     button_row.add_stretch_spacer(1);
 
-    main_sizer.add_sizer(&button_row, 0, SizerFlag::Expand | SizerFlag::Left | SizerFlag::Right, 16);
-    
+    main_sizer.add_sizer(
+        &button_row,
+        0,
+        SizerFlag::Expand | SizerFlag::Left | SizerFlag::Right,
+        16,
+    );
+
     main_sizer.add_spacer(16);
 
     dialog.set_sizer(main_sizer, true);
@@ -149,41 +176,41 @@ impl SettingsDialog {
             on_remove();
         });
     }
-    
+
     pub fn set_checklistbox_handler(&self, on_select: impl Fn(usize) + 'static) {
         let checklistbox = self.account_list.clone();
         self.account_list.on_selected(move |event_data| {
             if let Some(selected_index) = event_data.get_selection() {
                 let selected_index = selected_index as usize;
-                
+
                 let count = checklistbox.get_count() as usize;
                 for i in 0..count {
                     checklistbox.check(i as u32, false);
                 }
-                
+
                 checklistbox.check(selected_index as u32, true);
                 on_select(selected_index);
             }
         });
     }
-    
+
     pub fn refresh_account_list(&self, accounts: Vec<(String, String, bool)>) {
         self.account_list.clear();
-        
+
         let has_accounts = !accounts.is_empty();
-        
+
         for (i, (email, first_name, is_selected)) in accounts.into_iter().enumerate() {
             let label = format!("{} ({})", first_name, email);
             self.account_list.append(&label);
-            
+
             if is_selected {
                 self.account_list.check(i as u32, true);
             }
         }
-        
+
         self.remove_button.enable(has_accounts);
     }
-    
+
     pub fn get_checked_index(&self) -> Option<usize> {
         let count = self.account_list.get_count() as usize;
         for i in 0..count {
@@ -253,7 +280,8 @@ impl PlumeFrame {
 // MARK: - Text Selection Dialog
 impl PlumeFrame {
     pub fn create_text_selection_dialog(
-        &self, title: &str,
+        &self,
+        title: &str,
         label: &str,
         choices: Vec<String>,
     ) -> Result<i32, String> {

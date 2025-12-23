@@ -1,14 +1,24 @@
 use std::{fs, path::PathBuf, vec};
 
-use apple_codesign::{cryptography::{InMemoryPrivateKey, PrivateKey}, SigningSettings};
+use apple_codesign::{
+    SigningSettings,
+    cryptography::{InMemoryPrivateKey, PrivateKey},
+};
 // TODO: why do we have pem and pem_rfc7468 deps again?
 use pem_rfc7468::{LineEnding, encode_string};
 use rand::rngs::OsRng;
 use rcgen::{DnType, KeyPair, PKCS_RSA_SHA256};
-use rsa::{RsaPrivateKey, pkcs1::EncodeRsaPublicKey, pkcs8::{DecodePrivateKey, EncodePrivateKey}};
+use rsa::{
+    RsaPrivateKey,
+    pkcs1::EncodeRsaPublicKey,
+    pkcs8::{DecodePrivateKey, EncodePrivateKey},
+};
 use x509_certificate::{CapturedX509Certificate, X509Certificate};
 
-use crate::{Error, developer::{DeveloperSession, qh::certs::Cert}};
+use crate::{
+    Error,
+    developer::{DeveloperSession, qh::certs::Cert},
+};
 
 const MACHINE_NAME: &str = "AltStore";
 
@@ -17,13 +27,13 @@ pub struct CertificateIdentity {
     pub key: Option<Box<dyn PrivateKey>>,
     pub machine_id: Option<String>,
     pub serial_number: Option<String>,
-    pub p12_data: Option<Vec<u8>>
+    pub p12_data: Option<Vec<u8>>,
 }
 
 impl CertificateIdentity {
     // Use for cli context or if you actually store pems? why would you do that though
     pub async fn new_with_paths(paths: Option<Vec<PathBuf>>) -> Result<Self, Error> {
-        let mut cert = Self { 
+        let mut cert = Self {
             cert: None,
             key: None,
             machine_id: None,
@@ -51,8 +61,8 @@ impl CertificateIdentity {
 
         let key_path = Self::key_dir(config_path, &team_id)?.join("key.pem");
 
-        let mut cert = Self { 
-            cert: None, 
+        let mut cert = Self {
+            cert: None,
             key: None,
             machine_id: None,
             p12_data: None,
@@ -62,10 +72,7 @@ impl CertificateIdentity {
         // To same some unnecessary requests, we're going to list our certificates first here
         // then pass them into the necessary functions that need it, if the functions absolutely
         // need to request certificates (after submitting a CSR, for example), they can do so
-        let certs = session
-            .qh_list_certs(&team_id)
-            .await?
-            .certificates;
+        let certs = session.qh_list_certs(&team_id).await?.certificates;
 
         // Only the key will be written to disk, certificate can just be gotten via the request
         // request we've made, by trying to match our public key with the requests public key
@@ -73,22 +80,34 @@ impl CertificateIdentity {
             let key_string = fs::read_to_string(&key_path)?;
             let priv_key = RsaPrivateKey::from_pkcs8_pem(&key_string)?;
 
-            if let Some(cert) = cert.find_certificate(certs.clone(), &priv_key, &machine_name).await? {
-                let cert_pem = encode_string("CERTIFICATE", LineEnding::LF, cert.cert_content.as_ref()).unwrap();
+            if let Some(cert) = cert
+                .find_certificate(certs.clone(), &priv_key, &machine_name)
+                .await?
+            {
+                let cert_pem =
+                    encode_string("CERTIFICATE", LineEnding::LF, cert.cert_content.as_ref())
+                        .unwrap();
                 let key_pem = priv_key.to_pkcs8_pem(Default::default())?.to_string();
 
                 [cert_pem.into_bytes(), key_pem.into_bytes()]
             } else {
-                let (cert, priv_key) = cert.request_new_certificate(session, team_id, &machine_name, certs).await?;
-                let cert_pem = encode_string("CERTIFICATE", LineEnding::LF, cert.cert_content.as_ref()).unwrap();
+                let (cert, priv_key) = cert
+                    .request_new_certificate(session, team_id, &machine_name, certs)
+                    .await?;
+                let cert_pem =
+                    encode_string("CERTIFICATE", LineEnding::LF, cert.cert_content.as_ref())
+                        .unwrap();
                 let key_pem = priv_key.to_pkcs8_pem(Default::default())?.to_string();
 
                 fs::write(&key_path, &key_pem)?;
                 [cert_pem.into_bytes(), key_pem.into_bytes()]
             }
         } else {
-            let (cert, priv_key) = cert.request_new_certificate(session, team_id, &machine_name, certs).await?;
-            let cert_pem = encode_string("CERTIFICATE", LineEnding::LF, cert.cert_content.as_ref()).unwrap();
+            let (cert, priv_key) = cert
+                .request_new_certificate(session, team_id, &machine_name, certs)
+                .await?;
+            let cert_pem =
+                encode_string("CERTIFICATE", LineEnding::LF, cert.cert_content.as_ref()).unwrap();
             let key_pem = priv_key.to_pkcs8_pem(Default::default())?.to_string();
 
             fs::write(&key_path, &key_pem)?;
@@ -130,13 +149,13 @@ impl CertificateIdentity {
     // uses has no support for modern encryption, hopefully this doesn't add that
     // much more bloat
     pub fn create_pkcs12(&self, data: &[Vec<u8>; 2]) -> Option<Vec<u8>> {
-        let cert_der = pem::parse(&data[0]).ok()?.contents().to_vec(); 
+        let cert_der = pem::parse(&data[0]).ok()?.contents().to_vec();
         let key_der = pem::parse(&data[1]).ok()?.contents().to_vec();
 
         let cert = p12_keystore::Certificate::from_der(&cert_der).ok()?;
 
         let local_key_id = {
-            use sha1::{Sha1, Digest};
+            use sha1::{Digest, Sha1};
             let mut hasher = Sha1::new();
             hasher.update(&key_der);
             let hash = hasher.finalize();
@@ -146,7 +165,10 @@ impl CertificateIdentity {
         let key_chain = p12_keystore::PrivateKeyChain::new(key_der, local_key_id, vec![cert]);
 
         let mut keystore = p12_keystore::KeyStore::new();
-        keystore.add_entry("plume", p12_keystore::KeyStoreEntry::PrivateKeyChain(key_chain));
+        keystore.add_entry(
+            "plume",
+            p12_keystore::KeyStoreEntry::PrivateKeyChain(key_chain),
+        );
 
         let writer = keystore.writer(self.machine_id.as_deref().unwrap_or(""));
         writer.write().ok()
@@ -154,16 +176,20 @@ impl CertificateIdentity {
 
     // applecodesign-rs needs our contents as strings to sign
     fn resolve_certificate_from_contents(&mut self, contents: Vec<u8>) -> Result<(), Error> {
-         for pem in pem::parse_many(contents).map_err(Error::Pem)? {
+        for pem in pem::parse_many(contents).map_err(Error::Pem)? {
             match pem.tag() {
                 "CERTIFICATE" => {
                     self.cert = Some(CapturedX509Certificate::from_der(pem.contents())?);
                 }
                 "PRIVATE KEY" => {
-                    self.key = Some(Box::new(InMemoryPrivateKey::from_pkcs8_der(pem.contents())?));
+                    self.key = Some(Box::new(InMemoryPrivateKey::from_pkcs8_der(
+                        pem.contents(),
+                    )?));
                 }
                 "RSA PRIVATE KEY" => {
-                    self.key = Some(Box::new(InMemoryPrivateKey::from_pkcs1_der(pem.contents())?));
+                    self.key = Some(Box::new(InMemoryPrivateKey::from_pkcs1_der(
+                        pem.contents(),
+                    )?));
                 }
                 tag => log::debug!("(unhandled PEM tag {}; ignoring)", tag),
             }
@@ -180,11 +206,7 @@ impl CertificateIdentity {
         priv_key: &RsaPrivateKey,
         machine_name: &str,
     ) -> Result<Option<Cert>, Error> {
-        let pub_key_der_obj = priv_key
-            .to_public_key()
-            .to_pkcs1_der()?
-            .as_bytes()
-            .to_vec();
+        let pub_key_der_obj = priv_key.to_public_key().to_pkcs1_der()?.as_bytes().to_vec();
 
         for cert in certs {
             if cert.machine_name.as_deref() == Some(machine_name) {
@@ -227,8 +249,7 @@ impl CertificateIdentity {
         dn.push(DnType::OrganizationName, "ORGNIZATION");
         dn.push(DnType::CommonName, "CN");
 
-        let cert_csr = rcgen::Certificate::from_params(params)?
-            .serialize_request_pem()?;
+        let cert_csr = rcgen::Certificate::from_params(params)?.serialize_request_pem()?;
 
         let cert_serial_numbers = certs
             .iter()
@@ -239,46 +260,42 @@ impl CertificateIdentity {
         // on free developer accounts, we put it in a loop so whenever it does
         // fail, we also look through all of our existing certificates through
         // the api until we have a success on a single revokage, then we can
-        // successfully submit our csr, but if we just cannot at all, return 
+        // successfully submit our csr, but if we just cannot at all, return
         // an error
         let cert_id = loop {
             match session
-                .qh_submit_cert_csr(
-                    &team_id,
-                    cert_csr.clone(),
-                    machine_name,
-                ).await {
-                    Ok(id) => break id,
-                    Err(e) => {
-                        // 7460 is for too many certificates (I think)
-                        if matches!(&e, Error::DeveloperApi { result_code, .. } if *result_code == 7460) {
-                            // Try to revoke certificates from the candidate list
-                            let mut revoked_any = false;
-                            for cid in &cert_serial_numbers {
-                                if session
-                                    .qh_revoke_cert(&team_id, cid)
-                                    .await
-                                    .is_ok()
-                                {
-                                    log::warn!("Revoked certificate with serial number {}", cid);
-                                    revoked_any = true;
-                                    break;
-                                }
-                            }
-                            
-                            if revoked_any {
-                                continue;
-                            } else {
-                                return Err(Error::Certificate(
-                                    "Too many certificates and failed to revoke any".into(),
-                                ));
+                .qh_submit_cert_csr(&team_id, cert_csr.clone(), machine_name)
+                .await
+            {
+                Ok(id) => break id,
+                Err(e) => {
+                    // 7460 is for too many certificates (I think)
+                    if matches!(&e, Error::DeveloperApi { result_code, .. } if *result_code == 7460)
+                    {
+                        // Try to revoke certificates from the candidate list
+                        let mut revoked_any = false;
+                        for cid in &cert_serial_numbers {
+                            if session.qh_revoke_cert(&team_id, cid).await.is_ok() {
+                                log::warn!("Revoked certificate with serial number {}", cid);
+                                revoked_any = true;
+                                break;
                             }
                         }
-                        
-                        return Err(e)
+
+                        if revoked_any {
+                            continue;
+                        } else {
+                            return Err(Error::Certificate(
+                                "Too many certificates and failed to revoke any".into(),
+                            ));
+                        }
                     }
+
+                    return Err(e);
                 }
-        }.cert_request;
+            }
+        }
+        .cert_request;
 
         // We need to save the machine_id for our P12
         if let Some(ref machine_id) = cert_id.machine_id {
@@ -287,7 +304,7 @@ impl CertificateIdentity {
 
         self.set_serial_number(cert_id.serial_num.clone());
 
-        // We request again, and hope this has our new certificate 
+        // We request again, and hope this has our new certificate
         // ready.... if not then woops... thats too bad isnt it
         let certs = session
             .qh_list_certs(&team_id)

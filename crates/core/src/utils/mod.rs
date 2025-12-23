@@ -1,12 +1,12 @@
 use plist::Value;
 
 mod certificate;
-mod provision;
 mod macho;
+mod provision;
 
+pub use certificate::CertificateIdentity;
 pub use macho::{MachO, MachOExt};
 pub use provision::MobileProvision;
-pub use certificate::CertificateIdentity;
 
 pub const TEAM_ID_REGEX: &str = r"^[A-Z0-9]{10}\.";
 
@@ -45,7 +45,10 @@ pub fn merge_entitlements(
     }
 
     if let Some(Value::Array(groups)) = additions.get("keychain-access-groups") {
-        base.insert("keychain-access-groups".to_string(), Value::Array(groups.clone()));
+        base.insert(
+            "keychain-access-groups".to_string(),
+            Value::Array(groups.clone()),
+        );
     }
 
     // remove anything that does not match XXXXXXXXXX. (for example, com.apple.token)

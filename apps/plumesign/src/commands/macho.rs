@@ -1,7 +1,7 @@
-use std::path::PathBuf;
-use clap::Args;
 use anyhow::Result;
+use clap::Args;
 use plume_core::{MachO, MachOExt};
+use std::path::PathBuf;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -21,7 +21,7 @@ pub struct MachArgs {
     pub replace_dylib: Option<Vec<String>>,
     /// Set the SDK version (e.g., 26.0.0)
     #[arg(long, value_name = "SDK_VERSION")]
-    pub sdk_version: Option<String>
+    pub sdk_version: Option<String>,
 }
 
 pub async fn execute(args: MachArgs) -> Result<()> {
@@ -41,7 +41,12 @@ pub async fn execute(args: MachArgs) -> Result<()> {
 
     if args.list_dylibs {
         // TODO: add index argument
-        let d = macho.macho_file().nth_macho(0).unwrap().dylib_load_paths().unwrap();
+        let d = macho
+            .macho_file()
+            .nth_macho(0)
+            .unwrap()
+            .dylib_load_paths()
+            .unwrap();
         for path in d {
             println!("{path}");
         }
@@ -65,7 +70,3 @@ pub async fn execute(args: MachArgs) -> Result<()> {
 
     Ok(())
 }
-
-
-
-

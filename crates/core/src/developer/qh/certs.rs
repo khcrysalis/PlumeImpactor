@@ -1,16 +1,16 @@
-use serde::Deserialize;
 use plist::{Data, Date, Dictionary, Integer, Value};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::Error;
 
-use crate::developer_endpoint;
 use super::{DeveloperSession, QHResponseMeta};
+use crate::developer_endpoint;
 
 impl DeveloperSession {
     pub async fn qh_list_certs(&self, team_id: &String) -> Result<CertsResponse, Error> {
         let endpoint = developer_endpoint!("/QH65B2/ios/listAllDevelopmentCerts.action");
-        
+
         let mut body = Dictionary::new();
         body.insert("teamId".to_string(), Value::String(team_id.clone()));
 
@@ -20,28 +20,46 @@ impl DeveloperSession {
         Ok(response_data)
     }
 
-    pub async fn qh_revoke_cert(&self, team_id: &String, serial_number: &String) -> Result<QHResponseMeta, Error> {
+    pub async fn qh_revoke_cert(
+        &self,
+        team_id: &String,
+        serial_number: &String,
+    ) -> Result<QHResponseMeta, Error> {
         let endpoint = developer_endpoint!("/QH65B2/ios/revokeDevelopmentCert.action");
-        
+
         let mut body = Dictionary::new();
         body.insert("teamId".to_string(), Value::String(team_id.clone()));
-        body.insert("serialNumber".to_string(), Value::String(serial_number.clone()));
-        
+        body.insert(
+            "serialNumber".to_string(),
+            Value::String(serial_number.clone()),
+        );
+
         let response = self.qh_send_request(&endpoint, Some(body)).await?;
         let response_data: QHResponseMeta = plist::from_value(&Value::Dictionary(response))?;
 
         Ok(response_data)
     }
 
-    pub async fn qh_submit_cert_csr(&self, team_id: &String, csr_data: String, machine_name: &String) -> Result<CsrResponse, Error> {
+    pub async fn qh_submit_cert_csr(
+        &self,
+        team_id: &String,
+        csr_data: String,
+        machine_name: &String,
+    ) -> Result<CsrResponse, Error> {
         let endpoint = developer_endpoint!("/QH65B2/ios/submitDevelopmentCSR.action");
-        
+
         let mut body = Dictionary::new();
         body.insert("teamId".to_string(), Value::String(team_id.clone()));
         body.insert("csrContent".to_string(), Value::String(csr_data));
-        body.insert("machineId".to_string(), Value::String(Uuid::new_v4().to_string().to_uppercase()));
-        body.insert("machineName".to_string(), Value::String(machine_name.clone()));
-        
+        body.insert(
+            "machineId".to_string(),
+            Value::String(Uuid::new_v4().to_string().to_uppercase()),
+        );
+        body.insert(
+            "machineName".to_string(),
+            Value::String(machine_name.clone()),
+        );
+
         let response = self.qh_send_request(&endpoint, Some(body)).await?;
         let response_data: CsrResponse = plist::from_value(&Value::Dictionary(response))?;
 

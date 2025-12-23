@@ -1,14 +1,14 @@
 pub mod account;
 pub mod anisette_data;
 
-use serde::{Deserialize, Serialize};
 use omnisette::AnisetteConfiguration;
 use reqwest::Client;
-use tokio::sync::Mutex;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
-use crate::{Error, client};
 use crate::auth::anisette_data::AnisetteData;
+use crate::{Error, client};
 
 const GSA_ENDPOINT: &str = "https://gsa.apple.com/grandslam/GsService2";
 
@@ -24,7 +24,7 @@ impl Account {
         let anisette = AnisetteData::new(config).await?;
         Self::new_with_anisette(anisette)
     }
-    
+
     pub fn new_with_anisette(anisette: AnisetteData) -> Result<Self, Error> {
         let client = client()?;
         Ok(Account {

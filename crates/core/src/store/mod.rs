@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
@@ -82,10 +82,7 @@ impl AccountStore {
                 tokio::fs::create_dir_all(parent).await?;
             }
 
-            tokio::fs::write(
-                path, 
-                serde_json::to_string_pretty(self)?
-            ).await?;
+            tokio::fs::write(path, serde_json::to_string_pretty(self)?).await?;
         }
         Ok(())
     }
@@ -96,10 +93,7 @@ impl AccountStore {
                 std::fs::create_dir_all(parent)?;
             }
 
-            std::fs::write(
-                path, 
-                serde_json::to_string_pretty(self)?
-            )?;
+            std::fs::write(path, serde_json::to_string_pretty(self)?)?;
         }
         Ok(())
     }
@@ -168,7 +162,11 @@ impl AccountStore {
         }
     }
 
-    pub async fn accounts_add_from_session(&mut self, email: String, account: Account) -> Result<(), Error> {
+    pub async fn accounts_add_from_session(
+        &mut self,
+        email: String,
+        account: Account,
+    ) -> Result<(), Error> {
         let first_name = account.get_name().0;
         let s = DeveloperSession::using_account(account).await?;
         s.qh_list_teams().await?;

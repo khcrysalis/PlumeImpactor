@@ -11,7 +11,6 @@ pub use install::{InstallPage, create_install_page};
 mod work;
 pub use work::{WorkPage, create_work_page};
 
-
 // TODO: investigate why github actions messes up weird sizing shit
 #[cfg(target_os = "linux")]
 pub const WINDOW_SIZE: (i32, i32) = (760, 660);

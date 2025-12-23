@@ -1,11 +1,8 @@
 pub mod qh;
-pub mod v1;
 mod session;
+pub mod v1;
 
-pub use session::{
-    DeveloperSession, 
-    RequestType
-};
+pub use session::{DeveloperSession, RequestType};
 
 #[macro_export]
 macro_rules! developer_endpoint {

@@ -108,7 +108,9 @@ pub fn create_install_page(frame: &Frame) -> InstallPage {
     let ipad_fullscreen_checkbox = CheckBox::builder(&panel)
         .with_label("Force iPad Fullscreen")
         .build();
-    ipad_fullscreen_checkbox.set_tooltip("Forces the app to run in fullscreen on iPad by setting the UIRequiresFullScreen key to true.");
+    ipad_fullscreen_checkbox.set_tooltip(
+		"Forces the app to run in fullscreen on iPad by setting the UIRequiresFullScreen key to true.",
+	);
     let game_mode_checkbox = CheckBox::builder(&panel)
         .with_label("Force Game Mode")
         .build();

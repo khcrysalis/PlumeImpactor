@@ -2,7 +2,7 @@
 set -euo pipefail
 
 tooling_dir="flatpak-builder-tools"
-manifest="com.khcrysalis.PlumeImpactor.json"
+manifest="dev.khcrysalis.PlumeImpactor.json"
 
 if ! command -v poetry >/dev/null 2>&1; then
   echo "poetry is required to generate cargo-sources.json (install it first)." >&2
@@ -19,4 +19,4 @@ poetry run python flatpak-cargo-generator.py ../../Cargo.lock -o ../../cargo-sou
 popd >/dev/null
 
 flatpak-builder --force-clean --install --user build-dir "$manifest"
-flatpak build-bundle ~/.local/share/flatpak/repo PlumeImpactor.flatpak com.khcrysalis.PlumeImpactor
+flatpak build-bundle ~/.local/share/flatpak/repo PlumeImpactor.flatpak dev.khcrysalis.PlumeImpactor

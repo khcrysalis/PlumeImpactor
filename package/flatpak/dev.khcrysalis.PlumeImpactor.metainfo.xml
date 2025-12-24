@@ -25,10 +25,10 @@
   
   <description>
     <p>
-      **This app requires the <code>usbmuxd</code> package to be installed through your system's package manager.**
+      **This app requires the <code>usbmuxd</code> package to be installed through your system's package manager.** For most popular distributions of Linux, it should already be installed and running.
     </p>
     <p>
-      WIP open-source, cross-platform, and feature rich iOS/tvOS sideloading application. Supporting macOS, Linux, and Windows.
+      Free, open-source, cross-platform and feature rich app for sideloading applications onto Apple devices. Fully supports macOS, Linux and Windows.
     </p>
   </description>
   

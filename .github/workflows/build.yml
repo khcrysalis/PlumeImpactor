@@ -71,7 +71,7 @@ jobs:
               org.freedesktop.Platform/${{ matrix.arch }}/25.08 \
               org.freedesktop.Sdk/${{ matrix.arch }}/25.08 \
               org.freedesktop.Sdk.Extension.llvm21/${{ matrix.arch }}/25.08 \
-              org.freedesktop.Sdk.Extension.rust-stable/${{ matrix.arch }}/25.08
+              org.freedesktop.Sdk.Extension.rust-stable/${{ matrix.arch }}/25.08 \
               org.flatpak.Builder/${{ matrix.arch }}/stable
 
       - name: Build binaries

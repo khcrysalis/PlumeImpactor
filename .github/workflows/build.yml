@@ -65,18 +65,18 @@ jobs:
           packages: flatpak flatpak-builder libglib2.0-dev libsecret-1-dev libgtk-3-dev libpng-dev libjpeg-dev libgl1-mesa-dev libglu1-mesa-dev libxkbcommon-dev libexpat1-dev libtiff-dev
           version: 1.0
 
-      - name: Install Flatpak dependencies
-        run: |
-          sudo flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak install --system --assumeyes --noninteractive \
-              org.freedesktop.Platform//25.08 \
-              org.freedesktop.Sdk//25.08 \
-              org.freedesktop.Sdk.Extension.llvm21//25.08 \
-              org.freedesktop.Sdk.Extension.rust-stable//25.08
+#      - name: Install Flatpak dependencies
+#        run: |
+#          sudo flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+#          sudo flatpak install --system --assumeyes --noninteractive \
+#              org.freedesktop.Platform//25.08 \
+#              org.freedesktop.Sdk//25.08 \
+#              org.freedesktop.Sdk.Extension.llvm21//25.08 \
+#              org.freedesktop.Sdk.Extension.rust-stable//25.08
 
       - name: Build binaries
         run: |
-          make linux PROFILE=release FLATPAK=1 APPIMAGE=1
+          make linux PROFILE=release APPIMAGE=1
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4

@@ -52,54 +52,27 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14' 
+
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libglib2.0-dev libsecret-1-dev libgtk-3-dev libpng-dev libjpeg-dev libgl1-mesa-dev libglu1-mesa-dev libxkbcommon-dev libexpat1-dev libtiff-dev
 
-      - name: Build Binary
+      - name: Build binaries
         run: |
-          mkdir -p build/out
-          cargo build --workspace --bins --locked --release
-          cp target/release/${{ env.BINARY_NAME_CLI }} build/out/${{ env.BINARY_NAME_CLI }}-linux-${{ matrix.arch }}
+          make linux PROFILE=release FLATPAK=1 APPIMAGE=1
 
-      - name: Generate Runtime Metadata
-        run: |
-          cat > build/${{ env.BUNDLE_NAME }}.desktop <<EOF
-          [Desktop Entry]
-          Type=Application
-          Name=${{ env.BUNDLE_NAME }}
-          Exec=${{ env.BINARY_NAME }}
-          Icon=${{ env.BUNDLE_NAME }}
-          Categories=Utility;
-          Terminal=false
-          EOF
-
-          cp "package/linux/icon.png" "build/${{ env.BUNDLE_NAME }}.png"
-
-      - name: Bundle with LinuxDeploy
-        run: |
-          cd build
-          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${{ matrix.arch }}.AppImage
-          chmod +x linuxdeploy-${{ matrix.arch }}.AppImage
-
-          ./linuxdeploy-${{ matrix.arch }}.AppImage --appimage-extract-and-run \
-            --appdir AppDir \
-            --executable ../target/release/${{ env.BINARY_NAME }} \
-            --desktop-file ${{ env.BUNDLE_NAME }}.desktop \
-            --icon-file ${{ env.BUNDLE_NAME }}.png \
-            --output appimage
-
-          rm linuxdeploy-${{ matrix.arch }}.AppImage
-
-          mv *.AppImage out/
-          cd ..
-
-      - name: Upload Bundles
+      - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-linux-${{ matrix.arch }}
-          path: build/out/*
+          path: dist/*
 
   build-windows:
     runs-on: windows-latest
@@ -114,24 +87,24 @@ jobs:
 
       - name: Build & Bundle (Windows)
         run: |
-          mkdir -p build/out
+          mkdir -p dist
           mkdir -p build/nsis
           cargo build --workspace --bins --locked --release
           cp target/release/${{ env.BINARY_NAME }}.exe build/nsis
-          cp target/release/${{ env.BINARY_NAME_CLI }}.exe build/out/${{ env.BINARY_NAME_CLI }}-windows-x86_64.exe
+          cp target/release/${{ env.BINARY_NAME_CLI }}.exe dist/${{ env.BINARY_NAME_CLI }}-windows-x86_64.exe
 
       - name: Create NSIS Installer
         run: |
           mv package/windows/* build/nsis/
           choco install nsis.portable
           makensis build/nsis/installer.nsi
-          mv build/nsis/PlumeInstaller.exe build/out/${{ env.BUNDLE_NAME }}-windows-x86_64-setup.exe
+          mv build/nsis/PlumeInstaller.exe dist/${{ env.BUNDLE_NAME }}-windows-x86_64-setup.exe
 
       - name: Upload Bundles
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-windows
-          path: build/out/*
+          path: dist/*
 
   build-macos-slices:
     runs-on: ${{ matrix.os }}

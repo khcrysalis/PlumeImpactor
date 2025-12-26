@@ -60,7 +60,9 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build binaries
-        run: make windows PROFILE=release NSIS=1
+        run: |
+          choco install nsis.portable
+          make windows PROFILE=release NSIS=1
 
       - name: Upload Bundles
         uses: actions/upload-artifact@v4

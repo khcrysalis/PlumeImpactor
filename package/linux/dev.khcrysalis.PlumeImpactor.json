@@ -76,29 +76,22 @@
             "name": "plumeimpactor",
             "buildsystem": "simple",
             "build-commands": [
-                "python3 ./wxwidgets-extract.py",
+                "mkdir -p target/release/wxWidgets",
+                "unzip -oqq wxWidgets.zip -d target/release/wxWidgets",
                 "cargo --offline fetch --manifest-path Cargo.toml",
                 "bash -c 'export RUSTFLAGS=\"-C link-arg=-L/app/lib -C link-arg=-lnotify\"; cargo --offline build --release -p plumeimpactor'",
-                "install -Dm755 target/release/plumeimpactor /app/bin/plumeimpactor",
-                "install -Dm644 package/flatpak/dev.khcrysalis.PlumeImpactor.desktop /app/share/applications/dev.khcrysalis.PlumeImpactor.desktop",
-                "install -Dm644 package/flatpak/dev.khcrysalis.PlumeImpactor.metainfo.xml /app/share/metainfo/dev.khcrysalis.PlumeImpactor.metainfo.xml",
-                "install -Dm644 package/flatpak/icons/hicolor/16x16/apps/dev.khcrysalis.PlumeImpactor.png /app/share/icons/hicolor/16x16/apps/dev.khcrysalis.PlumeImpactor.png",
-                "install -Dm644 package/flatpak/icons/hicolor/32x32/apps/dev.khcrysalis.PlumeImpactor.png /app/share/icons/hicolor/32x32/apps/dev.khcrysalis.PlumeImpactor.png",
-                "install -Dm644 package/flatpak/icons/hicolor/48x48/apps/dev.khcrysalis.PlumeImpactor.png /app/share/icons/hicolor/48x48/apps/dev.khcrysalis.PlumeImpactor.png",
-                "install -Dm644 package/flatpak/icons/hicolor/64x64/apps/dev.khcrysalis.PlumeImpactor.png /app/share/icons/hicolor/64x64/apps/dev.khcrysalis.PlumeImpactor.png",
-                "install -Dm644 package/flatpak/icons/hicolor/128x128/apps/dev.khcrysalis.PlumeImpactor.png /app/share/icons/hicolor/128x128/apps/dev.khcrysalis.PlumeImpactor.png",
-                "install -Dm644 package/flatpak/icons/hicolor/256x256/apps/dev.khcrysalis.PlumeImpactor.png /app/share/icons/hicolor/256x256/apps/dev.khcrysalis.PlumeImpactor.png"
+                "make install PREFIX=/app PROFILE=release"
             ],
             "sources": [
                 {
                     "type": "file",
                     "url": "https://github.com/wxWidgets/wxWidgets/releases/download/v3.3.1/wxWidgets-3.3.1.zip",
                     "sha256": "c25311fecbc4b508577bdee4e90660da8d0d79f4099bc40e9cac8338879f9334",
-                    "dest-filename": "wxWidgets-3.3.1.zip"
+                    "dest-filename": "wxWidgets.zip"
                 },
                 {
                     "type": "dir",
-                    "path": "."
+                    "path": "../../"
                 },
                 "cargo-sources.json"
             ]

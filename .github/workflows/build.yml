@@ -4,12 +4,12 @@ on:
     branches:
       - main
     paths:
-      - 'crates/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'apps/**'
-      - 'package/**'
-      - '.github/workflows/build.yml'
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "apps/**"
+      - "package/**"
+      - ".github/workflows/build.yml"
   workflow_dispatch:
 
 env:
@@ -18,15 +18,6 @@ env:
   BUNDLE_NAME: Impactor
 
 jobs:
-  fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - run: cargo fmt --all --check
-
   build-linux:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -39,99 +30,45 @@ jobs:
             arch: aarch64
     steps:
       - uses: actions/checkout@v4
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: snok/install-poetry@v1
+      - uses: actions/setup-python@v6
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: linux-${{ matrix.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: linux-${{ matrix.arch }}-cargo-
+          python-version: "3.14"
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install and cache apt pkgs
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: flatpak flatpak-builder libglib2.0-dev libsecret-1-dev libgtk-3-dev libpng-dev libjpeg-dev libgl1-mesa-dev libglu1-mesa-dev libxkbcommon-dev libexpat1-dev libtiff-dev
+          version: 1.0
 
-      - name: Install Linux dependencies
+      - name: Build binaries
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libglib2.0-dev libsecret-1-dev libgtk-3-dev libpng-dev libjpeg-dev libgl1-mesa-dev libglu1-mesa-dev libxkbcommon-dev libexpat1-dev libtiff-dev
+          make linux PROFILE=release APPIMAGE=1
 
-      - name: Build Binary
-        run: |
-          mkdir -p build/out
-          cargo build --workspace --bins --locked --release
-          cp target/release/${{ env.BINARY_NAME_CLI }} build/out/${{ env.BINARY_NAME_CLI }}-linux-${{ matrix.arch }}
-
-      - name: Generate Runtime Metadata
-        run: |
-          cat > build/${{ env.BUNDLE_NAME }}.desktop <<EOF
-          [Desktop Entry]
-          Type=Application
-          Name=${{ env.BUNDLE_NAME }}
-          Exec=${{ env.BINARY_NAME }}
-          Icon=${{ env.BUNDLE_NAME }}
-          Categories=Utility;
-          Terminal=false
-          EOF
-
-          cp "package/linux/icon.png" "build/${{ env.BUNDLE_NAME }}.png"
-
-      - name: Bundle with LinuxDeploy
-        run: |
-          cd build
-          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${{ matrix.arch }}.AppImage
-          chmod +x linuxdeploy-${{ matrix.arch }}.AppImage
-
-          ./linuxdeploy-${{ matrix.arch }}.AppImage --appimage-extract-and-run \
-            --appdir AppDir \
-            --executable ../target/release/${{ env.BINARY_NAME }} \
-            --desktop-file ${{ env.BUNDLE_NAME }}.desktop \
-            --icon-file ${{ env.BUNDLE_NAME }}.png \
-            --output appimage
-
-          rm linuxdeploy-${{ matrix.arch }}.AppImage
-
-          mv *.AppImage out/
-          cd ..
-
-      - name: Upload Bundles
+      - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-linux-${{ matrix.arch }}
-          path: build/out/*
+          path: dist/*
 
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Windows MSVC environment
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Build & Bundle (Windows)
+      - name: Build binaries
         run: |
-          mkdir -p build/out
-          mkdir -p build/nsis
-          cargo build --workspace --bins --locked --release
-          cp target/release/${{ env.BINARY_NAME }}.exe build/nsis
-          cp target/release/${{ env.BINARY_NAME_CLI }}.exe build/out/${{ env.BINARY_NAME_CLI }}-windows-x86_64.exe
-
-      - name: Create NSIS Installer
-        run: |
-          mv package/windows/* build/nsis/
           choco install nsis.portable
-          makensis build/nsis/installer.nsi
-          mv build/nsis/PlumeInstaller.exe build/out/${{ env.BUNDLE_NAME }}-windows-x86_64-setup.exe
+          make windows PROFILE=release NSIS=1
 
       - name: Upload Bundles
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-windows
-          path: build/out/*
+          path: dist/*.exe
 
   build-macos-slices:
     runs-on: ${{ matrix.os }}
@@ -146,26 +83,17 @@ jobs:
             arch: intel
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Build (macOS ${{ matrix.arch }})
+      - name: Build binaries (${{ matrix.arch }})
         run: |
-          mkdir -p build/out
-          cargo build --workspace --bins --locked --release
-          strip target/release/${{ env.BINARY_NAME }}
-          strip target/release/${{ env.BINARY_NAME_CLI }}
-          cp target/release/${{ env.BINARY_NAME }} build/out/${{ env.BINARY_NAME }}-${{ matrix.arch }}
-          cp target/release/${{ env.BINARY_NAME_CLI }} build/out/${{ env.BINARY_NAME_CLI }}-macos-${{ matrix.arch }}
+          make macos PROFILE=release
 
       - name: Upload ${{ matrix.arch }} Slice
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-macos-slice-${{ matrix.arch }}
-          path: build/out/*
+          path: dist/*
 
   build-macos-universal:
     runs-on: macos-latest
@@ -177,13 +105,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-macos-slice-arm
-          path: build/slices
+          path: dist/slices
 
       - name: Get Intel Slice
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-macos-slice-intel
-          path: build/slices
+          path: dist/slices
 
       - name: Setup Certificates
         uses: apple-actions/import-codesign-certs@v5
@@ -197,29 +125,19 @@ jobs:
 
       - name: Create Universal Binary
         run: |
-          mkdir -p build/universal
-          lipo -create -output build/universal/${{ env.BINARY_NAME }} build/slices/${{ env.BINARY_NAME }}-arm build/slices/${{ env.BINARY_NAME }}-intel
-          chmod +x build/universal/${{ env.BINARY_NAME }}
-          vtool -arch x86_64 -arch arm64 -set-build-version 1 10.12 26.0 -output build/universal/${{ env.BINARY_NAME }} build/universal/${{ env.BINARY_NAME }}
-
-      - name: Bundle
-        run: |
-          mkdir -p build/dmg
-          cp -R package/macos/${{ env.BUNDLE_NAME }}.app build/dmg/${{ env.BUNDLE_NAME }}.app
-          mkdir -p build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/MacOS
-          mv build/universal/${{ env.BINARY_NAME }} build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/MacOS/${{ env.BINARY_NAME }}
-          VERSION=$(awk '/\[workspace.package\]/,/^$/' Cargo.toml | sed -nE 's/version *= *"([^"]*)".*/\1/p')
-          plutil -replace CFBundleShortVersionString -string "$VERSION" build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/Info.plist
-          plutil -replace CFBundleVersion -string "$VERSION" build/dmg/${{ env.BUNDLE_NAME }}.app/Contents/Info.plist
+          make macos BIN1=dist/slices/${{ env.BINARY_NAME }}-macos-arm64 BIN2=dist/slices/${{ env.BINARY_NAME }}-macos-x86_64 BUNDLE=1 ARCH=universal
+          make macos BIN1=dist/slices/${{ env.BINARY_NAME_CLI }}-macos-arm64 BIN2=dist/slices/${{ env.BINARY_NAME_CLI }}-macos-x86_64 ARCH=universal
 
       - name: Codesign
         run: |
+          mkdir -p dist/dmg
+          mv dist/${{ env.BUNDLE_NAME }}.app dist/dmg/
           codesign --deep --force --options runtime \
-            --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" build/dmg/${{ env.BUNDLE_NAME }}.app
+            --sign "${{ secrets.DEV_ID_IDENTITY_NAME }}" dist/dmg/${{ env.BUNDLE_NAME }}.app
 
       - name: Create DMG
         run: |
-          mkdir -p build/out
+          mkdir -p dist/out
           create-dmg \
             --volname ${{ env.BUNDLE_NAME }} \
             --background "package/macos/background.png" \
@@ -229,15 +147,17 @@ jobs:
             --icon ${{ env.BUNDLE_NAME }}.app 160 155 \
             --hide-extension "${{ env.BUNDLE_NAME }}.app" \
             --app-drop-link 350 155 \
-            build/out/${{ env.BUNDLE_NAME }}-macos-universal.dmg build/dmg
+            dist/${{ env.BUNDLE_NAME }}-macos-universal.dmg dist/dmg
 
       - name: Notarize DMG
         run: |
-          xcrun notarytool submit build/out/${{ env.BUNDLE_NAME }}-macos-universal.dmg --apple-id "${{ secrets.APPLE_ID_EMAIL }}" --password "${{ secrets.APPLE_ID_PASSWORD }}" --team-id "${{ secrets.APPLE_ID_TEAM }}" --wait
-          xcrun stapler staple build/out/${{ env.BUNDLE_NAME }}-macos-universal.dmg
+          xcrun notarytool submit dist/${{ env.BUNDLE_NAME }}-macos-universal.dmg --apple-id "${{ secrets.APPLE_ID_EMAIL }}" --password "${{ secrets.APPLE_ID_PASSWORD }}" --team-id "${{ secrets.APPLE_ID_TEAM }}" --wait
+          xcrun stapler staple dist/${{ env.BUNDLE_NAME }}-macos-universal.dmg
 
       - name: Upload Universal DMG
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-macos-universal
-          path: build/out/*
+          path: |
+            dist/${{ env.BUNDLE_NAME }}-macos-universal.dmg
+            dist/${{ env.BINARY_NAME_CLI }}-macos-universal

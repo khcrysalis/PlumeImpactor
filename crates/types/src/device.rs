@@ -56,6 +56,30 @@ impl Device {
         Ok(get_dict_string!(values, "DeviceName"))
     }
 
+    pub async fn pair(&self) -> Result<(), Error> {
+        if self.usbmuxd_device.is_none() {
+            return Err(Error::Other("Device is not connected via USB".to_string()));
+        }
+
+        let mut usbmuxd = UsbmuxdConnection::default().await?;
+
+        let provider = self.usbmuxd_device.clone().unwrap().to_provider(
+            UsbmuxdAddr::from_env_var().unwrap_or_default(),
+            INSTALLATION_LABEL,
+        );
+
+        let mut lc = LockdownClient::connect(&provider).await?;
+        let id = uuid::Uuid::new_v4().to_string().to_uppercase();
+        let buid = usbmuxd.get_buid().await?;
+        let mut pairing_file = lc.pair(id, buid).await?;
+        pairing_file.udid = Some(self.udid.clone());
+        let pairing_file = pairing_file.serialize()?;
+
+        usbmuxd.save_pair_record(&self.udid, pairing_file).await?;
+
+        Ok(())
+    }
+
     pub async fn install_pairing_record(
         &self,
         identifier: &String,

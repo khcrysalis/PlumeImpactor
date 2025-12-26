@@ -45,6 +45,7 @@ pub struct PlumeFrame {
     pub usbmuxd_picker: Choice,
 
     pub add_ipa_button: Button,
+    pub pair_button: Button,
     pub apple_id_button: Button,
 
     pub login_dialog: LoginDialog,
@@ -82,11 +83,14 @@ impl PlumeFrame {
 
         let add_ipa_button = Button::builder(&frame).with_label("Import").build();
         let device_picker = Choice::builder(&frame).build();
+        let pair_button = Button::builder(&frame).with_label("Pair").build();
         let apple_id_button = Button::builder(&frame).with_label("Settings").build();
 
         top_row.add(&add_ipa_button, 0, SizerFlag::All, 0);
         top_row.add_spacer(13);
         top_row.add(&device_picker, 1, SizerFlag::Expand | SizerFlag::All, 0);
+        top_row.add_spacer(13);
+        top_row.add(&pair_button, 0, SizerFlag::All, 0);
         top_row.add_spacer(13);
         top_row.add(&apple_id_button, 0, SizerFlag::All, 0);
 
@@ -118,6 +122,7 @@ impl PlumeFrame {
             work_page,
             usbmuxd_picker: device_picker,
             add_ipa_button,
+            pair_button,
             apple_id_button,
             login_dialog: create_login_dialog(&frame),
             settings_dialog: create_settings_dialog(&frame),
@@ -373,6 +378,53 @@ impl PlumeFrame {
                 if let Some(file_path) = dialog.get_path() {
                     process_package_file(sender.clone(), PathBuf::from(file_path));
                 }
+            }
+        });
+
+        self.pair_button.on_click({
+            let sender = sender.clone();
+            let message_handler = message_handler.clone();
+            move |_| {
+                let binding = message_handler.borrow();
+
+                let Some(selected_device) = binding.usbmuxd_selected_device_id.as_deref() else {
+                    sender
+                        .send(PlumeFrameMessage::Error(
+                            "No device selected for pairing.".to_string(),
+                        ))
+                        .ok();
+                    return;
+                };
+
+                let selected_device = selected_device.to_string();
+                let sender = sender.clone();
+
+                thread::spawn(move || {
+                    let rt = Builder::new_current_thread().enable_all().build().unwrap();
+
+                    rt.block_on(async move {
+                        let device = match get_device_for_id(&selected_device).await {
+                            Ok(device) => device,
+                            Err(_) => {
+                                sender
+                                    .send(PlumeFrameMessage::Error(
+                                        "Selected device not found.".to_string(),
+                                    ))
+                                    .ok();
+                                return;
+                            }
+                        };
+
+                        if let Err(e) = device.pair().await {
+                            sender
+                                .send(PlumeFrameMessage::Error(format!(
+                                    "Failed to pair with device: {}",
+                                    e
+                                )))
+                                .ok();
+                        }
+                    });
+                });
             }
         });
 

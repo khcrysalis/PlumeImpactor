@@ -47,7 +47,7 @@ ifeq ($(and $(BIN1),$(BIN2)),)
 	@cp target/$(PROFILE)/plumeimpactor dist/plumeimpactor-$(SUFFIX)
 	@cp target/$(PROFILE)/plumesign dist/plumesign-$(SUFFIX)
 else
-	ARCH=universal
+	ARCH = universal
 	@name=$$(basename $(BIN1)); \
 	name=$${name%-*}; \
 	lipo -create -output dist/$${name}-$(SUFFIX) $(BIN1) $(BIN2)

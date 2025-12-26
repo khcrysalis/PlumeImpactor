@@ -127,6 +127,7 @@ jobs:
         run: |
           ls dist/slices
           make macos BIN1=dist/slices/${{ env.BINARY_NAME }}-macos-arm64 BIN2=dist/slices/${{ env.BINARY_NAME }}-macos-x86_64 BUNDLE=1
+          make macos BIN1=dist/slices/${{ env.BINARY_NAME_CLI }}-macos-arm64 BIN2=dist/slices/${{ env.BINARY_NAME_CLI }}-macos-x86_64
 
       - name: Codesign
         run: |
@@ -158,3 +159,4 @@ jobs:
           name: ${{ env.BINARY_NAME }}-macos-universal
           path: |
             dist/${{ env.BUNDLE_NAME }}-macos-universal.dmg
+            dist/${{ env.BINARY_NAME_CLI }}-macos-universal

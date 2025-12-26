@@ -101,14 +101,14 @@ endif
 windows:
 	@cargo build --bins --workspace --$(PROFILE)
 	@mkdir -p dist
-	@mkdir -p build/nsis
+	@mkdir -p dist/nsis
 	@cp target/$(PROFILE)/plumesign.exe dist/plumesign-$(SUFFIX).exe
-	@cp target/$(PROFILE)/plumeimpactor.exe dist/Impactor-$(SUFFIX).exe
+	@cp target/$(PROFILE)/plumeimpactor.exe dist/Impactor-$(SUFFIX)-portable.exe
 ifeq ($(NSIS),1)
-	@cp target/$(PROFILE)/plumeimpactor.exe build/nsis/
-	@cp -r package/windows/* build/nsis/
-	@makensis build/nsis/installer.nsi
-	@mv build/nsis/installer.exe dist/Impactor-$(SUFFIX)-setup.exe
+	@cp target/$(PROFILE)/plumeimpactor.exe dist/nsis/
+	@cp -r package/windows/* dist/nsis/
+	@makensis dist/nsis/installer.nsi
+	@mv dist/nsis/installer.exe dist/Impactor-$(SUFFIX)-setup.exe
 endif
 
 install:

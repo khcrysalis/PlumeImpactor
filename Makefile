@@ -50,6 +50,7 @@ else
 	@name=$$(basename $(BIN1)); \
 	name=$${name%-$(OS)-*}; \
 	lipo -create -output dist/$${name}-$(SUFFIX) $(BIN1) $(BIN2)
+	chmod +x dist/$${name}-$(SUFFIX)
 endif
 ifeq ($(BUNDLE),1)
 	@cp -R package/macos/Impactor.app dist/Impactor.app

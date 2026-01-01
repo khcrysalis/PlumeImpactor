@@ -34,11 +34,10 @@ impl Signer {
             return Ok(());
         }
 
-        let all_bundles = bundle.collect_bundles_sorted()?;
-        let bundles = all_bundles
-            .iter()
+        let bundles = bundle
+            .collect_bundles_sorted()?
+            .into_iter()
             .filter(|b| b.bundle_type().should_have_entitlements())
-            .cloned()
             .collect::<Vec<_>>();
 
         if let Some(new_name) = self.options.custom_name.as_ref() {
@@ -96,11 +95,7 @@ impl Signer {
                 {
                     match self.options.app {
                         SignerApp::LiveContainerAndSideStore => {
-                            bundle.set_info_plist_key("ALTCertificateID", &**serial_number)?;
-                            fs::write(bundle.bundle_dir().join("ALTCertificate.p12"), p12_data)
-                                .await?;
-
-                            if let Some(embedded_bundle) = all_bundles
+                            if let Some(embedded_bundle) = bundles
                                 .iter()
                                 .find(|b| b.bundle_dir().ends_with("SideStoreApp.framework"))
                             {
@@ -377,7 +372,7 @@ impl Signer {
         }
 
         settings.set_for_notarization(false);
-        settings.set_shallow(false);
+        settings.set_shallow(true);
 
         Ok(settings)
     }

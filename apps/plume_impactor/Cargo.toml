@@ -28,5 +28,7 @@ eframe = { version = "0.32", default-features = false, features = [
 ] }
 wgpu = { version = "25", features = ["dx12", "vulkan", "metal", "gles"] }
 image = "0.25.9"
+tray-icon = "0.21.2"
+rfd = "0.16.0"
 [target.'cfg(target_os = "macos")'.dependencies]
 gestalt = { path = "../../crates/gestalt" }

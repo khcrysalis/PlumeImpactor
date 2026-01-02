@@ -75,7 +75,6 @@ pub struct SignerEmbedding {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignerInstallMode {
     Install,
-    InstallMac,
     Export,
 }
 

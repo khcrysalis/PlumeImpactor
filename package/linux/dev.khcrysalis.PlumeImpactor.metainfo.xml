@@ -35,11 +35,11 @@
   <launchable type="desktop-id">dev.khcrysalis.PlumeImpactor.desktop</launchable>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/khcrysalis/PlumeImpactor/refs/heads/main/package/flatpak/screenshots/light.png</image>
+      <image>https://raw.githubusercontent.com/khcrysalis/PlumeImpactor/refs/heads/main/package/linux/screenshots/light.png</image>
       <caption>Screenshot of Impactor after importing an app.</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/khcrysalis/PlumeImpactor/refs/heads/main/package/flatpak/screenshots/dark.png</image>
+      <image>https://raw.githubusercontent.com/khcrysalis/PlumeImpactor/refs/heads/main/package/linux/screenshots/dark.png</image>
       <caption>Screenshot of Impactor after importing an app, in dark mode.</caption>
     </screenshot>
   </screenshots>
@@ -50,6 +50,21 @@
   </branding>
   
   <releases>
+    <release version="1.4.0" date="2025-12-29">
+      <url type="details">https://github.com/khcrysalis/PlumeImpactor/releases/tag/v1.4.0</url>
+      <description>
+        <p>Older macOS support, portable windows exe and fixes</p>
+        <ul>
+          <li>Adds support for macOS Catalina, Big Sur, and potentially lower.</li>
+          <li>Adds portable exe for Windows in releases.</li>
+          <li>Adds support for manually triggering device trust dialog.</li>
+          <li>Fixes some apps not being installed properly on Apple Silicon Macs.</li>
+          <li>Fixes signing issues on Windows by doing additional checks.</li>
+          <li>Blacklists some capabilities from being registered, due to the fact that they would mainly need server-side setup.</li>
+        </ul>
+      </description>
+    </release>
+    
     <release version="1.3.0" date="2025-12-22">
       <url type="details">https://github.com/khcrysalis/PlumeImpactor/releases/tag/v1.3.0</url>
       <description>

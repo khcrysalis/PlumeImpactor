@@ -32,6 +32,7 @@ pub struct Device {
     pub udid: String,
     pub device_id: u32,
     pub usbmuxd_device: Option<UsbmuxdDevice>,
+    pub is_mac: bool,
 }
 
 impl Device {
@@ -45,6 +46,7 @@ impl Device {
             udid: usbmuxd_device.udid.clone(),
             device_id: usbmuxd_device.device_id.clone(),
             usbmuxd_device: Some(usbmuxd_device),
+            is_mac: false,
         }
     }
 
@@ -169,54 +171,6 @@ impl Device {
 
         Ok(())
     }
-
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    pub async fn install_app_mac(&self, app_path: &PathBuf) -> Result<(), Error> {
-        use crate::copy_dir_recursively;
-        use std::env;
-        use tokio::fs;
-        use uuid::Uuid;
-
-        let stage_dir = env::temp_dir().join(format!(
-            "plume_mac_stage_{}",
-            Uuid::new_v4().to_string().to_uppercase()
-        ));
-        let app_name = app_path
-            .file_name()
-            .ok_or(Error::Other("Invalid app path".to_string()))?;
-
-        // iOS Apps on macOS need to be wrapped in a special structure, more specifically
-        // ```
-        // LiveContainer.app
-        // ├── WrappedBundle -> Wrapper/LiveContainer.app
-        // └── Wrapper
-        //     └── LiveContainer.app
-        // ```
-        // Then install to /Applications/...
-
-        let outer_app_dir = stage_dir.join(app_name);
-        let wrapper_dir = outer_app_dir.join("Wrapper");
-
-        fs::create_dir_all(&wrapper_dir).await?;
-
-        copy_dir_recursively(app_path, &wrapper_dir.join(app_name)).await?;
-
-        let wrapped_bundle_path = outer_app_dir.join("WrappedBundle");
-        fs::symlink(
-            PathBuf::from("Wrapper").join(app_name),
-            &wrapped_bundle_path,
-        )
-        .await?;
-
-        let applications_dir = PathBuf::from("/Applications").join(app_name);
-        fs::rename(&outer_app_dir, &applications_dir)
-            .await
-            .map_err(|_| {
-                Error::BundleFailedToCopy(applications_dir.to_string_lossy().into_owned())
-            })?;
-
-        Ok(())
-    }
 }
 
 impl fmt::Display for Device {
@@ -247,4 +201,50 @@ pub async fn get_device_for_id(device_id: &str) -> Result<Device, Error> {
         .ok_or_else(|| Error::Other(format!("Device ID {device_id} not found")))?;
 
     Ok(Device::new(usbmuxd_device).await)
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub async fn install_app_mac(app_path: &PathBuf) -> Result<(), Error> {
+    use crate::copy_dir_recursively;
+    use std::env;
+    use tokio::fs;
+    use uuid::Uuid;
+
+    let stage_dir = env::temp_dir().join(format!(
+        "plume_mac_stage_{}",
+        Uuid::new_v4().to_string().to_uppercase()
+    ));
+    let app_name = app_path
+        .file_name()
+        .ok_or(Error::Other("Invalid app path".to_string()))?;
+
+    // iOS Apps on macOS need to be wrapped in a special structure, more specifically
+    // ```
+    // LiveContainer.app
+    // ├── WrappedBundle -> Wrapper/LiveContainer.app
+    // └── Wrapper
+    //     └── LiveContainer.app
+    // ```
+    // Then install to /Applications/...
+
+    let outer_app_dir = stage_dir.join(app_name);
+    let wrapper_dir = outer_app_dir.join("Wrapper");
+
+    fs::create_dir_all(&wrapper_dir).await?;
+
+    copy_dir_recursively(app_path, &wrapper_dir.join(app_name)).await?;
+
+    let wrapped_bundle_path = outer_app_dir.join("WrappedBundle");
+    fs::symlink(
+        PathBuf::from("Wrapper").join(app_name),
+        &wrapped_bundle_path,
+    )
+    .await?;
+
+    let applications_dir = PathBuf::from("/Applications").join(app_name);
+    fs::rename(&outer_app_dir, &applications_dir)
+        .await
+        .map_err(|_| Error::BundleFailedToCopy(applications_dir.to_string_lossy().into_owned()))?;
+
+    Ok(())
 }

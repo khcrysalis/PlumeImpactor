@@ -37,6 +37,21 @@ pub(crate) fn spawn_usbmuxd_listener(sender: mpsc::UnboundedSender<AppMessage>) 
         let rt = Builder::new_current_thread().enable_io().build().unwrap();
 
         rt.block_on(async move {
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            {
+                if let Some(mac_udid) = gestalt::get_udid() {
+                    sender
+                        .send(AppMessage::DeviceConnected(Device {
+                            name: "This Mac".into(),
+                            udid: mac_udid,
+                            device_id: u32::MAX,
+                            usbmuxd_device: None,
+                            is_mac: true,
+                        }))
+                        .ok();
+                }
+            }
+
             let Ok(mut muxer) = UsbmuxdConnection::default().await else {
                 return;
             };
@@ -189,18 +204,22 @@ async fn spawn_package_handler_impl(
     match signer_settings.install_mode {
         SignerInstallMode::Install => {
             if let Some(dev) = &device {
-                let callback_clone = callback.clone();
-                let progress_callback = {
-                    move |progress: i32| {
-                        let callback = callback_clone.clone();
+                if !dev.is_mac {
+                    let callback_clone = callback.clone();
+                    let progress_callback = {
+                        move |progress: i32| {
+                            let callback = callback_clone.clone();
 
-                        async move {
-                            callback("Installing...".to_string(), progress);
+                            async move {
+                                callback("Installing...".to_string(), progress);
+                            }
                         }
-                    }
-                };
+                    };
 
-                dev.install_app(&package_file, progress_callback).await?;
+                    dev.install_app(&package_file, progress_callback).await?;
+                } else {
+                    plume_utils::install_app_mac(&package_file).await?;
+                }
             } else {
                 return Err(plume_utils::Error::Other(
                     "No device connected for installation".to_string(),

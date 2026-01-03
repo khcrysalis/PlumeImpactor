@@ -77,7 +77,7 @@ pub(crate) fn spawn_package_handler(
     callback: impl Fn(String, i32) + Send + Clone + 'static,
 ) {
     tokio::task::spawn_blocking(move || {
-        let rt = Builder::new_current_thread().enable_io().build().unwrap();
+        let rt = Builder::new_current_thread().enable_all().build().unwrap();
         rt.block_on(async move {
             if let Err(err) = spawn_package_handler_impl(
                 device,

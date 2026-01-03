@@ -444,9 +444,14 @@ fn ui_package_settings(ui: &mut egui::Ui, app: &mut ImpactorApp, pkg: &Package) 
 
         let (tx, rx) = mpsc::unbounded_channel::<AppMessage>();
         app.receiver = Some(rx);
-        // TODO: gsa
+
+        let selected_device = app
+            .devices
+            .iter()
+            .find(|d| Some(d.device_id) == app.selected_device);
+
         spawn_package_handler(
-            None,
+            selected_device.cloned(),
             package,
             app.store
                 .as_ref()
@@ -462,10 +467,7 @@ fn ui_package_settings(ui: &mut egui::Ui, app: &mut ImpactorApp, pkg: &Package) 
 fn ui_package_work(ui: &mut egui::Ui, app: &mut ImpactorApp) {
     ui.label("Preparing application before installation/or export, this will take a moment. Do not disconnect the device until finished.");
     ui.add_space(12.0);
-    ui.label(format!(
-        "{} - {}%",
-        app.working_status.0, app.working_status.1
-    ));
+    ui.label(format!("{}", app.working_status.0));
 
     ui.add_space(6.0);
 

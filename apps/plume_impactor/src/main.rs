@@ -27,6 +27,8 @@ async fn main() -> eframe::Result<()> {
         ..Default::default()
     };
 
+    // TODO: linux tray
+
     #[cfg(not(target_os = "linux"))]
     let tray = Rc::new(RefCell::new(None::<TrayIcon>));
 

@@ -36,3 +36,5 @@ rustls = { version = "0.23.32", features = ["ring"] }
 gtk = "0.18"
 [target.'cfg(target_os = "macos")'.dependencies]
 gestalt = { path = "../../crates/gestalt" }
+[target.'cfg(target_os = "windows")'.build-dependencies]
+winres = "0.1"

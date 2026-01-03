@@ -36,13 +36,27 @@ async fn main() -> eframe::Result<()> {
     listeners::spawn_usbmuxd_listener(tx.clone());
     listeners::spawn_store_handler(tx.clone());
 
-    let options = NativeOptions {
+    let mut options = NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([540.0, 400.0])
             .with_resizable(false),
         run_and_return: true,
         ..Default::default()
     };
+
+    #[cfg(target_os = "macos")]
+    {
+        options.viewport.icon = Some(std::sync::Arc::new(egui::IconData::default()));
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let icon_bytes: &[u8] = include_bytes!(
+            "../../../package/linux/icons/hicolor/32x32/apps/dev.khcrysalis.PlumeImpactor.png"
+        );
+        let d = eframe::icon_data::from_png_bytes(icon_bytes).expect("The icon data must be valid");
+        options.viewport.icon = Some(std::sync::Arc::new(d));
+    }
 
     let tray = Rc::new(RefCell::new(None::<TrayIcon>));
 

@@ -5270,7 +5270,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "plume_impactor"
+name = "plume_shared"
+version = "1.4.0"
+
+[[package]]
+name = "plume_utils"
+version = "1.4.0"
+dependencies = [
+ "decompress",
+ "futures",
+ "goblin",
+ "idevice",
+ "log",
+ "plist",
+ "plume_core",
+ "thiserror 2.0.17",
+ "tokio",
+ "uuid",
+ "zip 4.6.1",
+]
+
+[[package]]
+name = "plumeimpactor"
 version = "1.4.0"
 dependencies = [
  "eframe",
@@ -5291,27 +5312,6 @@ dependencies = [
  "tray-icon",
  "uuid",
  "wgpu",
-]
-
-[[package]]
-name = "plume_shared"
-version = "1.4.0"
-
-[[package]]
-name = "plume_utils"
-version = "1.4.0"
-dependencies = [
- "decompress",
- "futures",
- "goblin",
- "idevice",
- "log",
- "plist",
- "plume_core",
- "thiserror 2.0.17",
- "tokio",
- "uuid",
- "zip 4.6.1",
 ]
 
 [[package]]

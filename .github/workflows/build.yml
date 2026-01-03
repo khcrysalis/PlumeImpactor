@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 env:
-  BINARY_NAME: plume_impactor
+  BINARY_NAME: plumeimpactor
   BINARY_NAME_CLI: plumesign
   BUNDLE_NAME: Impactor
 

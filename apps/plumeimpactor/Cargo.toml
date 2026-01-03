@@ -1,5 +1,5 @@
 [package]
-name = "plume_impactor"
+name = "plumeimpactor"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true

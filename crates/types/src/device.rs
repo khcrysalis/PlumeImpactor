@@ -32,6 +32,8 @@ pub struct Device {
     pub udid: String,
     pub device_id: u32,
     pub usbmuxd_device: Option<UsbmuxdDevice>,
+    // On x86_64 macs, `is_mac` variable should never be true
+    // since its only true if the device is added manually.
     pub is_mac: bool,
 }
 

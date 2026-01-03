@@ -103,7 +103,7 @@ pub(crate) fn spawn_package_handler(
             )
             .await
             {
-                callback(format!("Error: {}", err), -1);
+                callback(format!("Error: {}", err), 1);
             }
         });
     });
@@ -204,6 +204,8 @@ async fn spawn_package_handler_impl(
     match signer_settings.install_mode {
         SignerInstallMode::Install => {
             if let Some(dev) = &device {
+                // On x86_64 macs, `is_mac` variable should never be true
+                // since its only true if the device is added manually.
                 if !dev.is_mac {
                     let callback_clone = callback.clone();
                     let progress_callback = {

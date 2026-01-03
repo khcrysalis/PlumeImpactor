@@ -27,6 +27,7 @@ pub(crate) struct ImpactorApp {
     pub(crate) selected_settings: SignerOptions,
     pub(crate) store: Option<AccountStore>,
     pub(crate) is_working: bool,
+    pub(crate) is_work_button_enabled: bool,
     pub(crate) working_status: (String, i32),
     pub(crate) receiver: Option<mpsc::UnboundedReceiver<AppMessage>>,
     pub(crate) install_image: Option<egui::TextureHandle>,
@@ -44,6 +45,7 @@ impl Default for ImpactorApp {
             selected_settings: SignerOptions::default(),
             store: None,
             is_working: false,
+            is_work_button_enabled: false,
             working_status: ("Idle".to_string(), 0),
             receiver: None,
             install_image: None,
@@ -128,6 +130,8 @@ impl eframe::App for ImpactorApp {
                         let _ = ui.button("Utilities");
                     });
                 });
+
+                ui.separator();
 
                 if self.is_working {
                     ui_package_work(ui, self);
@@ -425,7 +429,13 @@ fn ui_package_settings(ui: &mut egui::Ui, app: &mut ImpactorApp, pkg: &Package) 
 
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                install_clicked |= ui.button("Install").clicked();
+                let (button_enabled, button_label) = match app.selected_settings.install_mode {
+                    SignerInstallMode::Export => (true, "Export"),
+                    SignerInstallMode::Install => (app.selected_device.is_some(), "Install"),
+                };
+
+                let button = ui.add_enabled(button_enabled, egui::Button::new(button_label));
+                install_clicked |= button.clicked();
                 cancel_clicked |= ui.button("Cancel").clicked();
             });
         });
@@ -468,28 +478,22 @@ fn ui_package_work(ui: &mut egui::Ui, app: &mut ImpactorApp) {
     ui.label("Preparing application before installation/or export, this will take a moment. Do not disconnect the device until finished.");
     ui.add_space(12.0);
     ui.label(format!("{}", app.working_status.0));
-
     ui.add_space(6.0);
 
-    ui.add_space(6.0);
-    ui.horizontal(|ui| {
-        ui.add_space(6.0);
-        let progress = (app.working_status.1 as f32 / 100.0).clamp(0.0, 1.0);
-        ui.add(
-            egui::ProgressBar::new(progress)
-                .show_percentage()
-                .desired_height(18.0)
-                .desired_width(ui.available_width() - 6.0),
-        );
-        ui.add_space(6.0);
-    });
-    ui.add_space(6.0);
+    let progress = (app.working_status.1 as f32 / 100.0).clamp(0.0, 1.0);
+    ui.add(
+        egui::ProgressBar::new(progress)
+            .show_percentage()
+            .desired_height(18.0)
+            .desired_width(ui.available_width() - 12.0),
+    );
+    ui.add_space(12.0);
 
-    ui.add_space(ui.available_size().y - 18.0);
-
-    ui.horizontal(|ui| {
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.button("Back").clicked() {
+    // Bottom-right "Back" button without manual add_space hacks
+    ui.with_layout(egui::Layout::bottom_up(egui::Align::Max), |ui| {
+        ui.horizontal(|ui| {
+            let button = ui.add_enabled(app.is_work_button_enabled, egui::Button::new("Back"));
+            if button.clicked() {
                 app.handle_message(AppMessage::WorkFinished);
             }
         });
@@ -555,6 +559,8 @@ fn ui_settings(ui: &mut egui::Ui, app: &mut ImpactorApp) {
 
     ui.heading("Misc");
     ui.separator();
+
+    ui.add_space(ui.available_size().y - 18.0);
 
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -630,9 +636,14 @@ impl ImpactorApp {
             AppMessage::WorkProgress(status, progress) => {
                 println!("{} - {}%", status, progress);
                 self.working_status = (status, progress);
+
+                if progress == 100 || progress == 1 {
+                    self.is_work_button_enabled = true;
+                }
             }
             AppMessage::WorkFinished => {
                 self.is_working = false;
+                self.is_work_button_enabled = false;
                 self.working_status = ("Idle".to_string(), 0);
                 self.handle_message(AppMessage::PackageDeselected);
             }

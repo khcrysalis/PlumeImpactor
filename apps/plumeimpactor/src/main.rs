@@ -7,9 +7,18 @@ mod login;
 use eframe::{NativeOptions, egui};
 use std::{cell::RefCell, rc::Rc};
 use tokio::sync::mpsc;
-use tray_icon::{TrayIcon, TrayIconBuilder};
+use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
 pub const APP_NAME: &str = concat!("Impactor – Version ", env!("CARGO_PKG_VERSION"));
+
+fn load_tray_icon() -> Icon {
+    let bytes = include_bytes!("./tray.png");
+    let image = image::load_from_memory(bytes)
+        .expect("tray.png is invalid")
+        .to_rgba8();
+    let (width, height) = image.dimensions();
+    Icon::from_rgba(image.into_raw(), width, height).expect("tray icon data invalid")
+}
 
 #[tokio::main]
 async fn main() -> eframe::Result<()> {
@@ -41,6 +50,7 @@ async fn main() -> eframe::Result<()> {
             tray.borrow_mut().replace(
                 TrayIconBuilder::new()
                     .with_tooltip(APP_NAME)
+                    .with_icon(load_tray_icon())
                     .build()
                     .unwrap(),
             );

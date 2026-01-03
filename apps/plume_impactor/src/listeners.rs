@@ -2,12 +2,32 @@ use std::thread;
 
 use futures::StreamExt;
 use idevice::usbmuxd::{UsbmuxdConnection, UsbmuxdListenEvent};
-use plume_core::{AnisetteConfiguration, CertificateIdentity, developer::DeveloperSession};
+use plume_core::{
+    AnisetteConfiguration, CertificateIdentity, developer::DeveloperSession, store::AccountStore,
+};
 use plume_shared::get_data_path;
 use plume_utils::{Device, Package, Signer, SignerInstallMode, SignerMode};
 use tokio::{runtime::Builder, sync::mpsc};
 
 use crate::app::AppMessage;
+
+// -----------------------------------------------------------------------------
+// storage
+// -----------------------------------------------------------------------------
+
+pub(crate) fn spawn_store_handler(sender: mpsc::UnboundedSender<AppMessage>) {
+    thread::spawn(move || {
+        let rt = Builder::new_current_thread().enable_io().build().unwrap();
+
+        rt.block_on(async move {
+            let store = AccountStore::load(&Some(get_data_path().join("accounts.json")))
+                .await
+                .unwrap_or_default();
+
+            let _ = sender.send(AppMessage::AccountStoreInitialized(store));
+        });
+    });
+}
 
 // -----------------------------------------------------------------------------
 // usbmuxd

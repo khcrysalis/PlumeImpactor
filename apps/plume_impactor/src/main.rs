@@ -2,6 +2,7 @@
 
 mod app;
 mod listeners;
+mod login;
 
 use eframe::{NativeOptions, egui};
 use std::{cell::RefCell, rc::Rc};
@@ -15,7 +16,8 @@ async fn main() -> eframe::Result<()> {
     env_logger::init();
 
     let (tx, rx) = mpsc::unbounded_channel();
-    listeners::spawn_usbmuxd_listener(tx);
+    listeners::spawn_usbmuxd_listener(tx.clone());
+    listeners::spawn_store_handler(tx.clone());
 
     let options = NativeOptions {
         viewport: egui::ViewportBuilder::default()

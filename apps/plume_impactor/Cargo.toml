@@ -18,7 +18,7 @@ plume_core = { path = "../../crates/core" }
 plume_utils = { path = "../../crates/types" }
 plume_shared = { path = "../../crates/shared" }
 
-egui = "0.33.3"
+egui = "0.32"
 eframe = { version = "0.32", default-features = false, features = [
     "default_fonts",
     "wgpu",

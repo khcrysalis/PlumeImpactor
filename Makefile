@@ -86,17 +86,15 @@ endif
 	@strip dist/Impactor-$(SUFFIX)
 ifeq ($(APPIMAGE),1)
 	@wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$(ARCH).AppImage -O /tmp/linuxdeploy.appimage
-	@wget https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh -O /tmp/linuxdeploy-plugin-gtk.sh
-	@chmod +x /tmp/linuxdeploy.appimage /tmp/linuxdeploy-plugin-gtk.sh
+	@chmod +x /tmp/linuxdeploy.appimage
 	@make install PREFIX=$(APPIMAGE_APPDIR)/usr
-	@PATH=/tmp:$$PATH DEPLOY_GTK_VERSION=3 NO_STRIP=true \
+	@NO_STRIP=true \
 		/tmp/linuxdeploy.appimage --appimage-extract-and-run \
 			--appdir $(APPIMAGE_APPDIR) \
 			--executable target/$(PROFILE)/plumeimpactor \
 			--desktop-file package/linux/$(ID).desktop \
-			--plugin gtk \
 			--output appimage
-	@rm /tmp/linuxdeploy.appimage /tmp/linuxdeploy-plugin-gtk.sh
+	@rm /tmp/linuxdeploy.appimage
 	@mv Plume_Impactor-$(ARCH).AppImage dist/Impactor-$(SUFFIX).appimage
 	@rm -rf $(APPIMAGE_APPDIR)
 endif

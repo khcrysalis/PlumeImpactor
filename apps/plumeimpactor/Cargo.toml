@@ -20,10 +20,8 @@ plume_shared = { path = "../../crates/shared" }
 
 egui = "0.32"
 eframe = { version = "0.32", default-features = false, features = [
-    "default_fonts",
     "wgpu",
     "glow",
-    "wayland",
     "x11",
 ] }
 wgpu = { version = "25", features = ["dx12", "vulkan", "metal", "gles"] }

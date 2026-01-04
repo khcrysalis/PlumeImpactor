@@ -49,7 +49,7 @@ async fn main() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([540.0, 400.0])
             .with_resizable(false),
-        run_and_return: false,
+        run_and_return: true,
         ..Default::default()
     };
 
@@ -72,8 +72,8 @@ async fn main() -> eframe::Result<()> {
     eframe::run_native(
         APP_NAME,
         options,
-        Box::new(|_| {
-            setup_tray(&tray);
+        Box::new(|ctx| {
+            setup_tray(&tray, &ctx.egui_ctx);
 
             Ok(Box::new(app::ImpactorApp {
                 receiver: Some(rx),
@@ -85,7 +85,7 @@ async fn main() -> eframe::Result<()> {
     )
 }
 
-fn setup_tray(tray: &Rc<RefCell<Option<TrayIcon>>>) {
+fn setup_tray(tray: &Rc<RefCell<Option<TrayIcon>>>, ctx: &egui::Context) {
     let icon = load_tray_icon();
 
     let tray_icon = TrayIconBuilder::new()
@@ -93,6 +93,20 @@ fn setup_tray(tray: &Rc<RefCell<Option<TrayIcon>>>) {
         .with_tooltip(APP_NAME)
         .build()
         .unwrap();
+
+    // Windows: immediate event handling
+    tray_icon::menu::MenuEvent::set_event_handler(Some({
+        let ctx = ctx.clone();
+        move |event: tray_icon::menu::MenuEvent| match event.id.as_ref() {
+            "open" => {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+            }
+            "quit" => std::process::exit(0),
+            _ => {
+                println!("Unknown tray menu event: {:?}", event.id);
+            }
+        }
+    }));
 
     tray.borrow_mut().replace(tray_icon);
 }

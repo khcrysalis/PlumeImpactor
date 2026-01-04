@@ -80,18 +80,6 @@ impl eframe::App for ImpactorApp {
             while gtk::glib::MainContext::default().iteration(false) {}
         }
 
-        // ---------------- Tray events ----------------
-        while let Ok(event) = MenuEvent::receiver().try_recv() {
-            println!("Tray menu event: {:?}", event.id);
-            match event.id.as_ref() {
-                "open" => {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                }
-                "quit" => std::process::exit(0),
-                _ => {}
-            }
-        }
-
         // ---------------- Async messages ----------------
         if let Some(mut rx) = self.receiver.take() {
             while let Ok(msg) = rx.try_recv() {

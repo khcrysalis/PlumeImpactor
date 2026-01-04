@@ -49,7 +49,7 @@ async fn main() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([540.0, 400.0])
             .with_resizable(false),
-        run_and_return: true,
+        run_and_return: false,
         ..Default::default()
     };
 

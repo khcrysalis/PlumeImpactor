@@ -71,6 +71,10 @@ fn load_embedded_install_image() -> Result<ColorImage, String> {
 
 impl eframe::App for ImpactorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if ctx.input(|i| i.viewport().close_requested()) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+        }
         #[cfg(target_os = "linux")]
         {
             while gtk::glib::MainContext::default().iteration(false) {}
@@ -79,6 +83,9 @@ impl eframe::App for ImpactorApp {
         // ---------------- Tray events ----------------
         if let Ok(event) = MenuEvent::receiver().try_recv() {
             match event.id.as_ref() {
+                "open" => {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                }
                 #[cfg(target_os = "linux")]
                 "quit" => std::process::exit(0),
                 _ => {}
@@ -165,6 +172,11 @@ impl eframe::App for ImpactorApp {
 
 fn build_tray_menu(app: &ImpactorApp) -> Menu {
     let menu = Menu::new();
+
+    menu.append(&PredefinedMenuItem::separator()).unwrap();
+
+    menu.append(&MenuItem::with_id("open", "Open", true, None))
+        .unwrap();
 
     let devices_submenu = Submenu::new("Devices", true);
 

@@ -10,8 +10,8 @@ use plume_utils::{Device, Package, PlistInfoTrait, SignerInstallMode, SignerMode
 use tokio::sync::mpsc;
 
 use tray_icon::{
-    TrayIcon, TrayIconEvent,
-    menu::{Menu, MenuItem, PredefinedMenuItem},
+    TrayIcon,
+    menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu},
 };
 
 use crate::listeners::spawn_package_handler;
@@ -77,13 +77,12 @@ impl eframe::App for ImpactorApp {
         }
 
         // ---------------- Tray events ----------------
-        if let Ok(event) = TrayIconEvent::receiver().try_recv() {
-            if let TrayIconEvent::Click { id, .. } = event {
-                match id.0.as_str() {
-                    "Settings" => println!("Settings clicked"),
-                    "quit" => std::process::exit(0),
-                    _ => {}
-                }
+        if let Ok(event) = MenuEvent::receiver().try_recv() {
+            println!("Tray menu event: {}", event.id.as_ref());
+            match event.id.as_ref() {
+                #[cfg(target_os = "linux")]
+                "6" => std::process::exit(0),
+                _ => {}
             }
         }
 
@@ -168,18 +167,23 @@ impl eframe::App for ImpactorApp {
 fn build_tray_menu(app: &ImpactorApp) -> Menu {
     let menu = Menu::new();
 
+    let devices_submenu = Submenu::new("Devices", true);
+
     if app.devices.is_empty() {
-        menu.append(&MenuItem::new("No devices connected", false, None))
+        devices_submenu
+            .append(&MenuItem::new("No devices connected", false, None))
             .unwrap();
     } else {
         for dev in &app.devices {
-            menu.append(&MenuItem::new(dev.to_string(), true, None))
+            devices_submenu
+                .append(&MenuItem::new(dev.to_string(), true, None))
                 .unwrap();
         }
     }
-
+    menu.append(&devices_submenu).unwrap();
     menu.append(&PredefinedMenuItem::separator()).unwrap();
-    menu.append(&MenuItem::new("Settings", true, None)).unwrap();
+    #[cfg(target_os = "linux")]
+    menu.append(&MenuItem::new("Quit", true, None)).unwrap();
     menu.append(&PredefinedMenuItem::quit(None)).unwrap();
 
     menu

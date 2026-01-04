@@ -1,13 +1,25 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 mod app;
 mod listeners;
 mod login;
 
-use eframe::{NativeOptions, egui};
-use std::{cell::RefCell, rc::Rc};
+#[cfg(target_os = "windows")]
+use std::sync::{
+    Arc,
+    atomic::{AtomicIsize, Ordering},
+};
+use std::{cell::RefCell, rc::Rc, sync::mpsc as std_mpsc};
+
+use eframe::NativeOptions;
+use eframe::egui;
 use tokio::sync::mpsc;
-use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
+use tray_icon::{Icon, TrayIcon, TrayIconBuilder, menu::MenuEvent};
+#[cfg(target_os = "windows")]
+use windows_sys::Win32::{
+    Foundation::HWND,
+    UI::WindowsAndMessaging::{SW_RESTORE, SW_SHOW, SetForegroundWindow, ShowWindow},
+};
 
 pub const APP_NAME: &str = concat!("Impactor – Version ", env!("CARGO_PKG_VERSION"));
 
@@ -68,24 +80,37 @@ async fn main() -> eframe::Result<()> {
     }
 
     let tray = Rc::new(RefCell::new(None::<TrayIcon>));
+    #[cfg(target_os = "windows")]
+    let win32_hwnd = Arc::new(AtomicIsize::new(0));
 
     eframe::run_native(
         APP_NAME,
         options,
         Box::new(|ctx| {
-            setup_tray(&tray, &ctx.egui_ctx);
+            #[cfg(target_os = "windows")]
+            let tray_menu_events = setup_tray(&tray, &ctx.egui_ctx, win32_hwnd.clone());
+            #[cfg(not(target_os = "windows"))]
+            let tray_menu_events = setup_tray(&tray, &ctx.egui_ctx);
 
             Ok(Box::new(app::ImpactorApp {
                 receiver: Some(rx),
+                tray_menu_events: Some(tray_menu_events),
                 tray_icon: tray.clone(),
                 sender: Some(tx),
+                #[cfg(target_os = "windows")]
+                win32_hwnd: Some(win32_hwnd.clone()),
                 ..Default::default()
             }))
         }),
     )
 }
 
-fn setup_tray(tray: &Rc<RefCell<Option<TrayIcon>>>, ctx: &egui::Context) {
+#[cfg(target_os = "windows")]
+fn setup_tray(
+    tray: &Rc<RefCell<Option<TrayIcon>>>,
+    ctx: &egui::Context,
+    win32_hwnd: Arc<AtomicIsize>,
+) -> std_mpsc::Receiver<MenuEvent> {
     let icon = load_tray_icon();
 
     let tray_icon = TrayIconBuilder::new()
@@ -94,19 +119,62 @@ fn setup_tray(tray: &Rc<RefCell<Option<TrayIcon>>>, ctx: &egui::Context) {
         .build()
         .unwrap();
 
-    // Windows: immediate event handling
-    tray_icon::menu::MenuEvent::set_event_handler(Some({
+    let (menu_tx, menu_rx) = std_mpsc::channel();
+
+    MenuEvent::set_event_handler(Some({
         let ctx = ctx.clone();
-        move |event: tray_icon::menu::MenuEvent| match event.id.as_ref() {
-            "open" => {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+        move |event: MenuEvent| {
+            if event.id.as_ref() == "open" {
+                restore_window_from_tray(win32_hwnd.load(Ordering::Acquire));
             }
-            "quit" => std::process::exit(0),
-            _ => {
-                println!("Unknown tray menu event: {:?}", event.id);
-            }
+
+            let _ = menu_tx.send(event);
+            ctx.request_repaint();
         }
     }));
 
     tray.borrow_mut().replace(tray_icon);
+
+    menu_rx
+}
+
+#[cfg(target_os = "windows")]
+fn restore_window_from_tray(hwnd: isize) {
+    if hwnd == 0 {
+        return;
+    }
+
+    unsafe {
+        _ = ShowWindow(hwnd as HWND, SW_SHOW);
+        _ = ShowWindow(hwnd as HWND, SW_RESTORE);
+        _ = SetForegroundWindow(hwnd as HWND);
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn setup_tray(
+    tray: &Rc<RefCell<Option<TrayIcon>>>,
+    ctx: &egui::Context,
+) -> std_mpsc::Receiver<MenuEvent> {
+    let icon = load_tray_icon();
+
+    let tray_icon = TrayIconBuilder::new()
+        .with_icon(icon)
+        .with_tooltip(APP_NAME)
+        .build()
+        .unwrap();
+
+    let (menu_tx, menu_rx) = std_mpsc::channel();
+
+    MenuEvent::set_event_handler(Some({
+        let ctx = ctx.clone();
+        move |event: MenuEvent| {
+            let _ = menu_tx.send(event);
+            ctx.request_repaint();
+        }
+    }));
+
+    tray.borrow_mut().replace(tray_icon);
+
+    menu_rx
 }

@@ -36,3 +36,6 @@ gtk = "0.18"
 gestalt = { path = "../../crates/gestalt" }
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1"
+[target.'cfg(target_os = "windows")'.dependencies]
+raw-window-handle = "0.6"
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }

@@ -5292,6 +5292,7 @@ dependencies = [
  "plume_core",
  "plume_shared",
  "plume_utils",
+ "raw-window-handle",
  "rfd",
  "rustls 0.23.32",
  "thiserror 2.0.17",
@@ -5299,6 +5300,7 @@ dependencies = [
  "tray-icon",
  "uuid",
  "wgpu",
+ "windows-sys 0.61.2",
  "winres",
 ]
 

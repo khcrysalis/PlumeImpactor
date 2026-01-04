@@ -17,6 +17,14 @@ use tray_icon::{
 use crate::listeners::spawn_package_handler;
 use crate::login::LoginUi;
 
+#[cfg(target_os = "windows")]
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+#[cfg(target_os = "windows")]
+use std::sync::{
+    Arc,
+    atomic::{AtomicIsize, Ordering},
+};
+
 // -----------------------------------------------------------------------------
 // App
 // -----------------------------------------------------------------------------
@@ -32,11 +40,14 @@ pub(crate) struct ImpactorApp {
     pub(crate) working_status: (String, i32),
     pub(crate) receiver: Option<mpsc::UnboundedReceiver<AppMessage>>,
     pub(crate) install_image: Option<egui::TextureHandle>,
+    pub(crate) tray_menu_events: Option<std_mpsc::Receiver<MenuEvent>>,
     pub(crate) tray_icon: Rc<RefCell<Option<TrayIcon>>>,
     pub(crate) tray_menu_dirty: bool,
     pub(crate) show_settings: bool,
     pub(crate) sender: Option<mpsc::UnboundedSender<AppMessage>>,
     pub(crate) login_ui: LoginUi,
+    #[cfg(target_os = "windows")]
+    pub(crate) win32_hwnd: Option<Arc<AtomicIsize>>,
 }
 
 impl Default for ImpactorApp {
@@ -52,11 +63,14 @@ impl Default for ImpactorApp {
             working_status: ("Idle".to_string(), 0),
             receiver: None,
             install_image: None,
+            tray_menu_events: None,
             tray_icon: Rc::new(RefCell::new(None)),
             tray_menu_dirty: true,
             show_settings: false,
             sender: None,
             login_ui: LoginUi::default(),
+            #[cfg(target_os = "windows")]
+            win32_hwnd: None,
         }
     }
 }
@@ -70,7 +84,7 @@ fn load_embedded_install_image() -> Result<ColorImage, String> {
 }
 
 impl eframe::App for ImpactorApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if ctx.input(|i| i.viewport().close_requested()) {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
@@ -86,6 +100,26 @@ impl eframe::App for ImpactorApp {
                 self.handle_message(msg);
             }
             self.receiver = Some(rx);
+        }
+
+        #[cfg(target_os = "windows")]
+        cache_hwnd(frame, self.win32_hwnd.as_ref());
+
+        // ---------------- Tray menu events ----------------
+        if let Some(rx) = self.tray_menu_events.as_ref() {
+            while let Ok(event) = rx.try_recv() {
+                match event.id.as_ref() {
+                    "open" => {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                    }
+                    "quit" => std::process::exit(0),
+                    _ => {
+                        println!("Unknown tray menu event: {:?}", event.id);
+                    }
+                }
+            }
         }
 
         // ---------------- Load image ONCE ----------------
@@ -151,6 +185,22 @@ impl eframe::App for ImpactorApp {
         crate::login::ui_login(ctx, &mut self.login_ui, self.sender.as_ref());
 
         ctx.request_repaint();
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn cache_hwnd(frame: &mut eframe::Frame, win32_hwnd: Option<&Arc<AtomicIsize>>) {
+    let Some(win32_hwnd) = win32_hwnd else {
+        return;
+    };
+    if win32_hwnd.load(Ordering::Acquire) != 0 {
+        return;
+    }
+    let Ok(handle) = frame.window_handle() else {
+        return;
+    };
+    if let RawWindowHandle::Win32(handle) = handle.as_raw() {
+        win32_hwnd.store(handle.hwnd.get(), Ordering::Release);
     }
 }
 

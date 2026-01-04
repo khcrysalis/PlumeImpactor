@@ -81,7 +81,7 @@ impl eframe::App for ImpactorApp {
             println!("Tray menu event: {}", event.id.as_ref());
             match event.id.as_ref() {
                 #[cfg(target_os = "linux")]
-                "6" => std::process::exit(0),
+                "quit" => std::process::exit(0),
                 _ => {}
             }
         }
@@ -182,8 +182,9 @@ fn build_tray_menu(app: &ImpactorApp) -> Menu {
     }
     menu.append(&devices_submenu).unwrap();
     menu.append(&PredefinedMenuItem::separator()).unwrap();
-    #[cfg(target_os = "linux")]
-    menu.append(&MenuItem::new("Quit", true, None)).unwrap();
+    // #[cfg(target_os = "linux")]
+    menu.append(&MenuItem::with_id("quit", "Quit", true, None))
+        .unwrap();
     menu.append(&PredefinedMenuItem::quit(None)).unwrap();
 
     menu

@@ -178,20 +178,36 @@ fn build_tray_menu(app: &ImpactorApp) -> Menu {
     menu.append(&MenuItem::with_id("open", "Open", true, None))
         .unwrap();
 
-    let devices_submenu = Submenu::new("Devices", true);
-
-    if app.devices.is_empty() {
-        devices_submenu
-            .append(&MenuItem::new("No devices connected", false, None))
-            .unwrap();
-    } else {
-        for dev in &app.devices {
-            devices_submenu
-                .append(&MenuItem::new(dev.to_string(), true, None))
+    #[cfg(target_os = "linux")]
+    {
+        menu.append(&MenuItem::new("Devices", false, None)).unwrap();
+        if app.devices.is_empty() {
+            menu.append(&MenuItem::new("  No devices connected", false, None))
                 .unwrap();
+        } else {
+            for dev in &app.devices {
+                menu.append(&MenuItem::new(format!("  {}", dev), true, None))
+                    .unwrap();
+            }
         }
     }
-    menu.append(&devices_submenu).unwrap();
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let devices_submenu = Submenu::new("Devices", true);
+        if app.devices.is_empty() {
+            devices_submenu
+                .append(&MenuItem::new("No devices connected", false, None))
+                .unwrap();
+        } else {
+            for dev in &app.devices {
+                devices_submenu
+                    .append(&MenuItem::new(dev.to_string(), true, None))
+                    .unwrap();
+            }
+        }
+        menu.append(&devices_submenu).unwrap();
+    }
     menu.append(&PredefinedMenuItem::separator()).unwrap();
     #[cfg(target_os = "linux")]
     menu.append(&MenuItem::with_id("quit", "Quit", true, None))

@@ -259,7 +259,7 @@ fn ui_drag_drop(ui: &mut egui::Ui, app: &mut ImpactorApp) {
 
     let fixed_size = egui::Vec2::new(128.0, 128.0);
     let spacing = 8.0;
-    let text_height = ui.fonts(|f| f.row_height(&egui::TextStyle::Heading.resolve(ui.style())));
+    let text_height = ui.fonts_mut(|f| f.row_height(&egui::TextStyle::Heading.resolve(ui.style())));
     let total_height = fixed_size.y + spacing + text_height;
 
     let top = drag_rect.center().y - total_height / 2.0;

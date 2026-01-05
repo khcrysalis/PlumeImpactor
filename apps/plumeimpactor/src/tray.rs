@@ -32,6 +32,9 @@ pub fn setup_tray(
     MenuEvent::set_event_handler(Some({
         let ctx = ctx.clone();
         move |event: MenuEvent| {
+            if event.id.as_ref() == "quit" {
+                std::process::exit(0);
+            }
             if event.id.as_ref() == "open" {
                 restore_window_from_tray(win32_hwnd.load(Ordering::Acquire));
             }

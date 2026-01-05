@@ -1,5 +1,9 @@
 use super::PlistInfoTrait;
 use crate::Error;
+use goblin::mach::{
+    fat::FAT_MAGIC,
+    header::{MH_MAGIC, MH_MAGIC_64},
+};
 use plist::Value;
 use std::{fs, path::PathBuf};
 
@@ -243,10 +247,11 @@ fn is_macho_dylib(path: &std::path::Path) -> bool {
         return false;
     }
 
-    matches!(
-        u32::from_be_bytes(magic),
-        0xfeedface | 0xfeedfacf | 0xcafebabe | 0xcafebabf
-    )
+    let be = u32::from_be_bytes(magic);
+    let le = u32::from_le_bytes(magic);
+
+    matches!(be, MH_MAGIC | MH_MAGIC_64 | FAT_MAGIC)
+        || matches!(le, MH_MAGIC | MH_MAGIC_64 | FAT_MAGIC)
 }
 
 #[derive(Debug, Clone, PartialEq)]

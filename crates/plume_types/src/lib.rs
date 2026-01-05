@@ -75,10 +75,10 @@ async fn copy_dir_recursively(src: &Path, dst: &Path) -> Result<(), Error> {
         let dst_path = dst.join(entry.file_name());
 
         if file_type.is_symlink() {
-            let target = fs::read_link(&src_path).await?;
             #[cfg(unix)]
             {
                 use std::os::unix::fs::symlink;
+                let target = fs::read_link(&src_path).await?;
                 symlink(&target, &dst_path)?;
             }
         } else if file_type.is_dir() {

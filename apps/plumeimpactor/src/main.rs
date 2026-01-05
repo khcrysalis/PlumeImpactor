@@ -68,7 +68,7 @@ async fn main() -> eframe::Result<()> {
 
     let tray = Rc::new(RefCell::new(None::<TrayIcon>));
     #[cfg(target_os = "windows")]
-    let win32_hwnd = Arc::new(AtomicIsize::new(0));
+    let win32_hwnd = std::sync::Arc::new(std::sync::atomic::AtomicIsize::new(0));
 
     eframe::run_native(
         APP_NAME,

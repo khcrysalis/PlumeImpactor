@@ -23,7 +23,7 @@ pub fn setup_tray(
 
     let tray_icon = TrayIconBuilder::new()
         .with_icon(icon)
-        .with_tooltip(APP_NAME)
+        .with_tooltip(crate::APP_NAME)
         .build()
         .unwrap();
 

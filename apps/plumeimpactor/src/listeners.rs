@@ -242,7 +242,19 @@ async fn spawn_package_handler_impl(
         }
         SignerInstallMode::Export => {
             let archive_path = selected_package.get_archive_based_on_path(package_file)?;
-            todo!("Export to {}", archive_path.display());
+            let file = rfd::AsyncFileDialog::new()
+                .set_title("Save Signed Package As")
+                .set_file_name(
+                    archive_path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("signed_package.ipa"),
+                )
+                .save_file()
+                .await;
+            if let Some(save_path) = file {
+                tokio::fs::copy(&archive_path, &save_path.path()).await?;
+            }
         }
     }
 

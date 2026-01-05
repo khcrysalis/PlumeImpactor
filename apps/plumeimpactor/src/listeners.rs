@@ -297,7 +297,7 @@ async fn spawn_certificate_export_handler_impl(
     tokio::fs::write(&archive_path, p12_data).await?;
 
     let file = rfd::AsyncFileDialog::new()
-        .set_title("Save Signed Package As")
+        .set_title("Save Certificate As")
         .set_file_name(
             archive_path
                 .file_name()

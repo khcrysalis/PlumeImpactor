@@ -9,7 +9,13 @@ use std::sync::{
     Arc,
     atomic::{AtomicIsize, Ordering},
 };
-use std::{cell::RefCell, rc::Rc, sync::mpsc as std_mpsc};
+use std::{
+    cell::RefCell,
+    env, fs,
+    path::{Path, PathBuf},
+    rc::Rc,
+    sync::mpsc as std_mpsc,
+};
 
 use eframe::NativeOptions;
 use eframe::egui;
@@ -43,9 +49,9 @@ async fn main() -> eframe::Result<()> {
     {
         // wayland is so fucking broken
         unsafe {
-            std::env::set_var("WINIT_UNIX_BACKEND", "x11");
-            std::env::remove_var("WAYLAND_DISPLAY");
-            std::env::remove_var("WAYLAND_SOCKET");
+            env::set_var("WINIT_UNIX_BACKEND", "x11");
+            env::remove_var("WAYLAND_DISPLAY");
+            env::remove_var("WAYLAND_SOCKET");
         }
     }
 
@@ -178,4 +184,18 @@ fn setup_tray(
     tray.borrow_mut().replace(tray_icon);
 
     menu_rx
+}
+
+pub fn get_data_path() -> PathBuf {
+    let base = if cfg!(windows) {
+        env::var("APPDATA").unwrap()
+    } else {
+        env::var("HOME").unwrap() + "/.config"
+    };
+
+    let dir = Path::new(&base).join("PlumeImpactor");
+
+    fs::create_dir_all(&dir).ok();
+
+    dir
 }

@@ -5,11 +5,11 @@ use idevice::usbmuxd::{UsbmuxdConnection, UsbmuxdListenEvent};
 use plume_core::{
     AnisetteConfiguration, CertificateIdentity, developer::DeveloperSession, store::AccountStore,
 };
-use plume_shared::get_data_path;
+
 use plume_utils::{Device, Package, Signer, SignerInstallMode, SignerMode};
 use tokio::{runtime::Builder, sync::mpsc, time::sleep};
 
-use crate::app::AppMessage;
+use crate::{app::AppMessage, get_data_path};
 
 // -----------------------------------------------------------------------------
 // storage

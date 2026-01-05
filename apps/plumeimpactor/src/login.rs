@@ -2,7 +2,6 @@ use std::{sync::mpsc as std_mpsc, thread};
 
 use eframe::egui;
 use plume_core::{AnisetteConfiguration, auth::Account, store::account_from_session};
-use plume_shared::get_data_path;
 use tokio::{runtime::Builder, sync::mpsc};
 
 use crate::app::AppMessage;
@@ -209,7 +208,7 @@ fn spawn_login_handler(sender: mpsc::UnboundedSender<AppMessage>, email: String,
         let rt = Builder::new_current_thread().enable_all().build().unwrap();
 
         let anisette_config =
-            AnisetteConfiguration::default().set_configuration_path(get_data_path());
+            AnisetteConfiguration::default().set_configuration_path(crate::get_data_path());
 
         let (code_tx, code_rx) = std_mpsc::channel::<Result<String, String>>();
         let sender_for_2fa = sender.clone();

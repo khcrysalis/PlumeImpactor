@@ -16,7 +16,6 @@ futures.workspace = true
 env_logger.workspace = true
 plume_core = { path = "../../crates/plume_core" }
 plume_utils = { path = "../../crates/plume_types" }
-plume_shared = { path = "../../crates/plume_shared" }
 
 egui = "0.33.3"
 eframe = { version = "0.33.3", default-features = false, features = [

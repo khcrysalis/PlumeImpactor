@@ -4,12 +4,14 @@ use anyhow::Result;
 use clap::Args;
 
 use plume_core::{CertificateIdentity, MobileProvision};
-use plume_shared::get_data_path;
 use plume_utils::{Bundle, Package, Signer, SignerMode, SignerOptions};
 
-use crate::commands::{
-    account::{get_authenticated_account, teams},
-    device::select_device,
+use crate::{
+    commands::{
+        account::{get_authenticated_account, teams},
+        device::select_device,
+    },
+    get_data_path,
 };
 
 #[derive(Debug, Args)]

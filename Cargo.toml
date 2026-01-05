@@ -5,7 +5,6 @@ members = [
     "apps/plumesign",
     "crates/plume_core",
     "crates/plume_gestalt",
-    "crates/plume_shared",
     "crates/plume_types",
 ]
 

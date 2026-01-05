@@ -11,7 +11,8 @@ use plume_core::{
     developer::DeveloperSession,
     store::{AccountStatus, AccountStore},
 };
-use plume_shared::get_data_path;
+
+use crate::get_data_path;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]

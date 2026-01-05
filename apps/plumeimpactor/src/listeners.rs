@@ -322,7 +322,9 @@ async fn spawn_certificate_export_handler_impl(
 pub fn spawn_pair_handler(device: Option<Device>) {
     tokio::spawn(async move {
         if let Some(device) = device {
-            let _ = device.pair().await;
+            if !device.is_mac {
+                let _ = device.pair().await;
+            }
         }
     });
 }

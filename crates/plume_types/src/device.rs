@@ -2,11 +2,13 @@ use std::fmt;
 use std::path::{Component, Path, PathBuf};
 
 use idevice::IdeviceService;
+use idevice::installation_proxy::InstallationProxyClient;
 use idevice::lockdown::LockdownClient;
 use idevice::usbmuxd::{Connection, UsbmuxdAddr, UsbmuxdDevice};
 use idevice::utils::installation;
 
-use crate::Error;
+use crate::options::SignerAppReal;
+use crate::{Error, SignerApp};
 use idevice::afc::opcode::AfcFopenMode;
 use idevice::house_arrest::HouseArrestClient;
 use idevice::usbmuxd::UsbmuxdConnection;
@@ -58,6 +60,33 @@ impl Device {
                 .await?;
         let values = lockdown.get_value(None, None).await?;
         Ok(get_dict_string!(values, "DeviceName"))
+    }
+
+    pub async fn installed_apps(&self) -> Result<Vec<SignerAppReal>, Error> {
+        let device = match &self.usbmuxd_device {
+            Some(dev) => dev,
+            None => return Err(Error::Other("Device is not connected via USB".to_string())),
+        };
+
+        let provider = device.to_provider(
+            UsbmuxdAddr::from_env_var().unwrap_or_default(),
+            INSTALLATION_LABEL,
+        );
+
+        let mut ic = InstallationProxyClient::connect(&provider).await?;
+        let apps = ic.get_apps(Some("User"), None).await?;
+
+        let mut found_apps = Vec::new();
+
+        for (bundle_id, _) in apps {
+            let signer_app = SignerAppReal::from_bundle_identifier(Some(bundle_id.as_str()));
+
+            if signer_app.app.supports_pairing_file_alt() {
+                found_apps.push(signer_app);
+            }
+        }
+
+        Ok(found_apps)
     }
 
     pub async fn pair(&self) -> Result<(), Error> {

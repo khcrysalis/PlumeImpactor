@@ -349,3 +349,36 @@ pub fn spawn_pair_handler(device: Option<Device>) {
         }
     });
 }
+
+pub fn spawn_apps_handler(
+    device: Option<Device>,
+    callback: impl Fn(Vec<plume_utils::SignerAppReal>) + Send + Clone + 'static,
+) {
+    tokio::spawn(async move {
+        if let Some(device) = device {
+            if !device.is_mac {
+                let apps = device.installed_apps().await.unwrap_or_default();
+                callback(apps);
+            }
+        }
+    });
+}
+
+pub fn spawn_apps_pair_handler(device: Option<Device>, app: plume_utils::SignerAppReal) {
+    tokio::spawn(async move {
+        if let Some(device) = device {
+            if !device.is_mac {
+                if app.app.supports_pairing_file_alt() {
+                    if let (Some(bundle_id), Some(pairing_file_bundle_path)) =
+                        (app.bundle_id.as_ref(), app.app.pairing_file_path())
+                    {
+                        // It's safe to pass bundle_id here because it's a &String now
+                        let _ = device
+                            .install_pairing_record(bundle_id, &pairing_file_bundle_path)
+                            .await;
+                    }
+                }
+            }
+        }
+    });
+}

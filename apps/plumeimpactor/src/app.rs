@@ -4,7 +4,10 @@ use eframe::egui;
 use eframe::epaint::ColorImage;
 
 use plume_store::{AccountStore, GsaAccount};
-use plume_utils::{Device, Package, PlistInfoTrait, SignerInstallMode, SignerMode, SignerOptions};
+use plume_utils::{
+    Device, Package, PlistInfoTrait, SignerApp, SignerAppReal, SignerInstallMode, SignerMode,
+    SignerOptions,
+};
 
 use tokio::sync::mpsc;
 
@@ -14,7 +17,8 @@ use tray_icon::{
 };
 
 use crate::listeners::{
-    spawn_certificate_export_handler, spawn_package_handler, spawn_pair_handler,
+    spawn_apps_handler, spawn_apps_pair_handler, spawn_certificate_export_handler,
+    spawn_package_handler, spawn_pair_handler,
 };
 use crate::login::LoginUi;
 
@@ -49,6 +53,8 @@ pub(crate) struct ImpactorApp {
     pub(crate) login_ui: LoginUi,
     #[cfg(target_os = "windows")]
     pub(crate) win32_hwnd: Option<Arc<AtomicIsize>>,
+    pub(crate) show_utilities_window: bool,
+    pub(crate) apps: Vec<SignerAppReal>,
 }
 
 impl Default for ImpactorApp {
@@ -72,6 +78,8 @@ impl Default for ImpactorApp {
             login_ui: LoginUi::default(),
             #[cfg(target_os = "windows")]
             win32_hwnd: None,
+            show_utilities_window: false,
+            apps: Vec::new(),
         }
     }
 }
@@ -171,7 +179,13 @@ impl eframe::App for ImpactorApp {
                                 .iter()
                                 .find(|d| Some(d.device_id) == Some(device_id));
 
-                            spawn_pair_handler(selected_device.cloned());
+                            let (tx, rx) = mpsc::unbounded_channel::<AppMessage>();
+                            self.receiver = Some(rx);
+
+                            spawn_apps_handler(selected_device.cloned(), move |apps| {
+                                let _ = tx.send(AppMessage::InstalledAppsUpdated(apps));
+                            });
+                            // spawn_pair_handler(selected_device.cloned());
                         }
                     }
 
@@ -179,7 +193,9 @@ impl eframe::App for ImpactorApp {
                         if ui.button("⚙ Settings").clicked() {
                             self.show_settings = true;
                         }
-                        let _ = ui.button("Utilities");
+                        if ui.button("Utilities").clicked() {
+                            self.show_utilities_window = true;
+                        }
                     });
                 });
 
@@ -198,6 +214,40 @@ impl eframe::App for ImpactorApp {
         });
 
         crate::login::ui_login(ctx, &mut self.login_ui, self.sender.as_ref());
+
+        if self.show_utilities_window {
+            let show = &mut self.show_utilities_window;
+            let apps = self.apps.clone();
+            let device = self
+                .devices
+                .iter()
+                .find(|d| Some(d.device_id) == self.selected_device)
+                .cloned();
+            ctx.show_viewport_immediate(
+                egui::ViewportId::from_hash_of("utilities_window"),
+                egui::ViewportBuilder::default()
+                    .with_title("Utilities")
+                    .with_inner_size([400.0, 300.0]),
+                move |ui, _| {
+                    egui::CentralPanel::default().show(ui, |ui| {
+                        ui.label("Installed Apps:");
+
+                        for app in &apps {
+                            ui.horizontal(|ui| {
+                                ui.label(format!("{} ({:?})", app.app.to_string(), app.bundle_id));
+                                if ui.button("Install").clicked() {
+                                    spawn_apps_pair_handler(device.clone(), app.clone());
+                                }
+                            });
+                        }
+                    });
+
+                    if ui.input(|i| i.viewport().close_requested()) {
+                        *show = false;
+                    }
+                },
+            );
+        }
 
         ctx.request_repaint();
     }
@@ -697,6 +747,7 @@ pub(crate) enum AppMessage {
     AccountSelected(usize),
     LoginNeedsTwoFactor(std_mpsc::Sender<Result<String, String>>),
     LoginFailed(String),
+    InstalledAppsUpdated(Vec<SignerAppReal>),
 }
 
 impl ImpactorApp {
@@ -793,6 +844,9 @@ impl ImpactorApp {
             }
             AppMessage::LoginFailed(error) => {
                 self.login_ui.fail(error);
+            }
+            AppMessage::InstalledAppsUpdated(apps) => {
+                self.apps = apps;
             }
         }
     }

@@ -97,6 +97,22 @@ impl Default for SignerMode {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignerAppReal {
+    pub app: SignerApp,
+    pub bundle_id: Option<String>,
+}
+
+impl SignerAppReal {
+    pub fn from_bundle_identifier(identifier: Option<&str>) -> Self {
+        let app = SignerApp::from_bundle_identifier(identifier);
+        Self {
+            app,
+            bundle_id: identifier.map(|s| s.to_string()),
+        }
+    }
+}
+
 /// Supported app types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignerApp {
@@ -112,26 +128,59 @@ pub enum SignerApp {
     SparseBox,
 }
 
+impl std::fmt::Display for SignerApp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use SignerApp::*;
+        let name = match self {
+            Default => "Default",
+            Antrag => "Antrag",
+            Feather => "Feather",
+            Protokolle => "Protokolle",
+            AltStore => "AltStore",
+            SideStore => "SideStore",
+            LiveContainer | LiveContainerAndSideStore => "LiveContainer",
+            StikDebug => "StikDebug",
+            SparseBox => "SparseBox",
+        };
+        write!(f, "{}", name)
+    }
+}
+
 impl SignerApp {
     pub fn from_bundle_identifier(identifier: Option<impl AsRef<str>>) -> Self {
-        match identifier.as_ref().map(|s| s.as_ref()) {
-            Some("com.kdt.livecontainer") => SignerApp::LiveContainer,
-            Some("thewonderofyou.syslog") => SignerApp::Protokolle,
-            Some("thewonderofyou.antrag2") => SignerApp::Antrag,
-            Some("thewonderofyou.Feather") => SignerApp::Feather,
-            Some("com.SideStore.SideStore") => SignerApp::SideStore,
-            Some("com.rileytestut.AltStore") => SignerApp::AltStore,
-            Some("com.stik.js") => SignerApp::StikDebug,
-            Some("com.kdt.SparseBox") => SignerApp::SparseBox,
-            _ => SignerApp::Default,
+        let id = match identifier {
+            Some(id) => id.as_ref().to_owned(),
+            None => return SignerApp::Default,
+        };
+
+        const KNOWN_APPS: &[(&str, SignerApp)] = &[
+            ("com.kdt.livecontainer", SignerApp::LiveContainer),
+            ("thewonderofyou.syslog", SignerApp::Protokolle),
+            ("thewonderofyou.antrag2", SignerApp::Antrag),
+            ("thewonderofyou.Feather", SignerApp::Feather),
+            ("com.SideStore.SideStore", SignerApp::SideStore),
+            ("com.rileytestut.AltStore", SignerApp::AltStore),
+            ("com.stik.js", SignerApp::StikDebug),
+            ("com.kdt.SparseBox", SignerApp::SparseBox),
+        ];
+
+        for &(known_id, app) in KNOWN_APPS {
+            if id.contains(known_id) {
+                return app;
+            }
         }
+
+        SignerApp::Default
     }
 
     pub fn supports_pairing_file(&self) -> bool {
-        !matches!(
-            self,
-            SignerApp::Default | SignerApp::LiveContainer | SignerApp::AltStore
-        )
+        use SignerApp::*;
+        !matches!(self, Default | LiveContainer | AltStore)
+    }
+
+    pub fn supports_pairing_file_alt(&self) -> bool {
+        use SignerApp::*;
+        !matches!(self, Default | AltStore)
     }
 
     pub fn pairing_file_path(&self) -> Option<&'static str> {
@@ -141,7 +190,7 @@ impl SignerApp {
                 Some("/Documents/pairingFile.plist")
             }
             SideStore => Some("/Documents/ALTPairingFile.mobiledevicepairing"),
-            LiveContainerAndSideStore => {
+            LiveContainerAndSideStore | LiveContainer => {
                 Some("/Documents/SideStore/Documents/ALTPairingFile.mobiledevicepairing")
             }
             _ => None,

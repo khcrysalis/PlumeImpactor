@@ -1,7 +1,7 @@
 use std::{sync::mpsc as std_mpsc, thread};
 
 use eframe::egui;
-use plume_core::{AnisetteConfiguration, auth::Account, store::account_from_session};
+use plume_core::{AnisetteConfiguration, auth::Account};
 use tokio::{runtime::Builder, sync::mpsc};
 
 use crate::app::AppMessage;
@@ -226,17 +226,19 @@ fn spawn_login_handler(sender: mpsc::UnboundedSender<AppMessage>, email: String,
         ));
 
         match account_result {
-            Ok(account) => match rt.block_on(account_from_session(email.clone(), account)) {
-                Ok(gsa_account) => {
-                    let _ = sender.send(AppMessage::AccountAdded(gsa_account));
+            Ok(account) => {
+                match rt.block_on(plume_store::account_from_session(email.clone(), account)) {
+                    Ok(gsa_account) => {
+                        let _ = sender.send(AppMessage::AccountAdded(gsa_account));
+                    }
+                    Err(e) => {
+                        let _ = sender.send(AppMessage::LoginFailed(format!(
+                            "Failed to create GSA account from session: {}",
+                            e
+                        )));
+                    }
                 }
-                Err(e) => {
-                    let _ = sender.send(AppMessage::LoginFailed(format!(
-                        "Failed to create GSA account from session: {}",
-                        e
-                    )));
-                }
-            },
+            }
             Err(e) => {
                 let _ = sender.send(AppMessage::LoginFailed(format!("Login failed: {}", e)));
             }

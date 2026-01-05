@@ -4,7 +4,7 @@ members = [
     "apps/plumeimpactor",
     "apps/plumesign",
     "crates/plume_core",
-    "crates/plume_gestalt",
+    "crates/plume_gestalt", "crates/plume_store",
     "crates/plume_types",
 ]
 

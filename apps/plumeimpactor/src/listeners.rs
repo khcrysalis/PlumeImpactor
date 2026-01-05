@@ -2,10 +2,9 @@ use std::{thread, time::Duration};
 
 use futures::StreamExt;
 use idevice::usbmuxd::{UsbmuxdConnection, UsbmuxdListenEvent};
-use plume_core::{
-    AnisetteConfiguration, CertificateIdentity, developer::DeveloperSession, store::AccountStore,
-};
+use plume_core::{AnisetteConfiguration, CertificateIdentity, developer::DeveloperSession};
 
+use plume_store::GsaAccount;
 use plume_utils::{Device, Package, Signer, SignerInstallMode, SignerMode};
 use tokio::{runtime::Builder, sync::mpsc, time::sleep};
 
@@ -20,9 +19,10 @@ pub(crate) fn spawn_store_handler(sender: mpsc::UnboundedSender<AppMessage>) {
         let rt = Builder::new_current_thread().enable_io().build().unwrap();
 
         rt.block_on(async move {
-            let store = AccountStore::load(&Some(get_data_path().join("accounts.json")))
-                .await
-                .unwrap_or_default();
+            let store =
+                plume_store::AccountStore::load(&Some(get_data_path().join("accounts.json")))
+                    .await
+                    .unwrap_or_default();
 
             let _ = sender.send(AppMessage::AccountStoreInitialized(store));
         });
@@ -99,7 +99,7 @@ pub(crate) fn spawn_usbmuxd_listener(sender: mpsc::UnboundedSender<AppMessage>) 
 pub(crate) fn spawn_package_handler(
     device: Option<Device>,
     selected_package: Package,
-    gsa_account: Option<plume_core::store::GsaAccount>,
+    gsa_account: Option<GsaAccount>,
     signer_settings: plume_utils::SignerOptions,
     callback: impl Fn(String, i32) + Send + Clone + 'static,
 ) {
@@ -124,7 +124,7 @@ pub(crate) fn spawn_package_handler(
 async fn spawn_package_handler_impl(
     device: Option<Device>,
     selected_package: &Package,
-    gsa_account: Option<plume_core::store::GsaAccount>,
+    gsa_account: Option<GsaAccount>,
     signer_settings: plume_utils::SignerOptions,
     callback: impl Fn(String, i32) + Send + Clone + 'static,
 ) -> Result<(), plume_utils::Error> {

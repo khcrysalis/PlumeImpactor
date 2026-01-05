@@ -5268,6 +5268,16 @@ name = "plume_gestalt"
 version = "1.4.0"
 
 [[package]]
+name = "plume_store"
+version = "1.4.0"
+dependencies = [
+ "plume_core",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "plume_utils"
 version = "1.4.0"
 dependencies = [
@@ -5298,6 +5308,7 @@ dependencies = [
  "plist",
  "plume_core",
  "plume_gestalt",
+ "plume_store",
  "plume_utils",
  "raw-window-handle",
  "rfd",
@@ -5326,6 +5337,7 @@ dependencies = [
  "plist",
  "plume_core",
  "plume_gestalt",
+ "plume_store",
  "plume_utils",
  "rustls 0.23.32",
  "tokio",

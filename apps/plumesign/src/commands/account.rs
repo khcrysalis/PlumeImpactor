@@ -5,12 +5,8 @@ use anyhow::{Ok, Result};
 use clap::{Args, Subcommand};
 use dialoguer::Select;
 
-use plume_core::{
-    AnisetteConfiguration,
-    auth::Account,
-    developer::DeveloperSession,
-    store::{AccountStatus, AccountStore},
-};
+use plume_core::{AnisetteConfiguration, auth::Account, developer::DeveloperSession};
+use plume_store::AccountStore;
 
 use crate::get_data_path;
 
@@ -129,12 +125,6 @@ pub async fn get_authenticated_account() -> Result<DeveloperSession> {
             )
         })?
         .clone();
-
-    if *gsa_account.status() == AccountStatus::NeedsReauth {
-        return Err(anyhow::anyhow!(
-            "Account is invalid. Please login again using 'plumesign account login'"
-        ));
-    }
 
     let anisette_config = AnisetteConfiguration::default().set_configuration_path(get_data_path());
 
@@ -316,24 +306,13 @@ async fn list_accounts() -> Result<()> {
 
     log::info!("Saved accounts:");
     for (email, account) in accounts {
-        let status_str = match account.status() {
-            AccountStatus::Valid => "Valid",
-            AccountStatus::NeedsReauth => "Needs Re-auth",
-        };
-
         let selected = if Some(email) == selected_email.as_ref() {
             "(selected)"
         } else {
             ""
         };
 
-        log::info!(
-            " [{}] {} - {} {}",
-            status_str,
-            account.first_name(),
-            email,
-            selected
-        );
+        log::info!(" [{}] {} {}", account.first_name(), email, selected);
     }
 
     Ok(())

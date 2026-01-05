@@ -2,9 +2,8 @@ use std::{cell::RefCell, rc::Rc, sync::mpsc as std_mpsc};
 
 use eframe::egui;
 use eframe::epaint::ColorImage;
-// TODO: move to plume_storage
-// TODO: rename gestalt to plume_gestalt
-use plume_core::store::{AccountStore, GsaAccount};
+
+use plume_store::{AccountStore, GsaAccount};
 use plume_utils::{Device, Package, PlistInfoTrait, SignerInstallMode, SignerMode, SignerOptions};
 
 use tokio::sync::mpsc;

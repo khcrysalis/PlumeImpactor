@@ -242,6 +242,8 @@ async fn spawn_package_handler_impl(
                             signer_settings.custom_identifier.as_ref(),
                             signer_settings.app.pairing_file_path(),
                         ) {
+                            // theres a chance that it will fail, maybe because the device
+                            // doesnt contain a password, so, i dont care if it fails
                             _ = dev
                                 .install_pairing_record(
                                     custom_identifier,

@@ -129,6 +129,7 @@ async fn spawn_package_handler_impl(
     callback: impl Fn(String, i32) + Send + Clone + 'static,
 ) -> Result<(), plume_utils::Error> {
     let package_file: std::path::PathBuf;
+    let mut signer_settings = signer_settings.clone();
 
     callback("Preparing package...".to_string(), 10);
 
@@ -182,6 +183,8 @@ async fn spawn_package_handler_impl(
             signer.register_bundle(&bundle, &session, team_id).await?;
             signer.sign_bundle(&bundle).await?;
 
+            // modify_bundle does some funky stuff
+            signer_settings = signer.options.clone();
             package_file = bundle.bundle_dir().to_path_buf();
         }
         SignerMode::Adhoc => {
@@ -198,6 +201,8 @@ async fn spawn_package_handler_impl(
             signer.modify_bundle(&bundle, &None).await?;
             signer.sign_bundle(&bundle).await?;
 
+            // modify_bundle does some funky stuff
+            signer_settings = signer.options.clone();
             package_file = bundle.bundle_dir().to_path_buf();
         }
         _ => {
@@ -231,6 +236,20 @@ async fn spawn_package_handler_impl(
                     };
 
                     dev.install_app(&package_file, progress_callback).await?;
+
+                    if signer_settings.app.supports_pairing_file() {
+                        if let (Some(custom_identifier), Some(pairing_file_bundle_path)) = (
+                            signer_settings.custom_identifier.as_ref(),
+                            signer_settings.app.pairing_file_path(),
+                        ) {
+                            _ = dev
+                                .install_pairing_record(
+                                    custom_identifier,
+                                    &pairing_file_bundle_path,
+                                )
+                                .await?;
+                        }
+                    }
                 } else {
                     plume_utils::install_app_mac(&package_file).await?;
                 }

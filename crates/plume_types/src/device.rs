@@ -130,7 +130,7 @@ impl Device {
                     }
 
                     current.push_str(&dir.to_string_lossy());
-                    let _ = ac.mk_dir(&current).await;
+                    ac.mk_dir(&current).await?;
                 }
             }
         }

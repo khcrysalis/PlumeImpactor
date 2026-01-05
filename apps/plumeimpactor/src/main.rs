@@ -43,6 +43,7 @@ async fn main() -> eframe::Result<()> {
     {
         // wayland is so fucking broken
         unsafe {
+            std::env::set_var("WINIT_UNIX_BACKEND", "x11");
             std::env::remove_var("WAYLAND_DISPLAY");
             std::env::remove_var("WAYLAND_SOCKET");
         }

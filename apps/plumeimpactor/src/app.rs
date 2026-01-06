@@ -332,9 +332,17 @@ impl eframe::App for ImpactorApp {
                                             ));
                                         });
 
-                                        if ui.button("Install").clicked() {
-                                            spawn_apps_pair_handler(device.clone(), app.clone());
-                                        }
+                                        ui.with_layout(
+                                            egui::Layout::right_to_left(egui::Align::Center),
+                                            |ui| {
+                                                if ui.button("Install").clicked() {
+                                                    spawn_apps_pair_handler(
+                                                        device.clone(),
+                                                        app.clone(),
+                                                    );
+                                                }
+                                            },
+                                        )
                                     });
 
                                     ui.separator();

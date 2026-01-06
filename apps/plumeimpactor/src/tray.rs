@@ -5,7 +5,7 @@ use std::sync::{
 };
 use std::{cell::RefCell, rc::Rc, sync::mpsc as std_mpsc};
 
-use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent, menu::MenuEvent};
+use tray_icon::{Icon, MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent, menu::MenuEvent};
 
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::{
@@ -22,6 +22,7 @@ pub fn setup_tray(
     let icon = load_tray_icon();
 
     let tray_icon = TrayIconBuilder::new()
+        .with_menu_on_left_click(false)
         .with_icon(icon)
         .with_tooltip(crate::APP_NAME)
         .build()
@@ -48,13 +49,17 @@ pub fn setup_tray(
     TrayIconEvent::set_event_handler(Some({
         let ctx = ctx.clone();
         move |event: TrayIconEvent| {
-            if let TrayIconEvent::DoubleClick { .. } = event.clone() {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                ..
+            } = event
+            {
                 restore_window_from_tray(win32_hwnd.load(Ordering::Acquire));
+                ctx.request_repaint();
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
             }
-            ctx.request_repaint();
-            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
-            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
         }
     }));
 

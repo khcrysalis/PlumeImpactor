@@ -5,8 +5,7 @@ use eframe::epaint::ColorImage;
 
 use plume_store::{AccountStore, GsaAccount};
 use plume_utils::{
-    Device, Package, PlistInfoTrait, SignerApp, SignerAppReal, SignerInstallMode, SignerMode,
-    SignerOptions,
+    Device, Package, PlistInfoTrait, SignerAppReal, SignerInstallMode, SignerMode, SignerOptions,
 };
 
 use tokio::sync::mpsc;
@@ -55,6 +54,8 @@ pub(crate) struct ImpactorApp {
     pub(crate) win32_hwnd: Option<Arc<AtomicIsize>>,
     pub(crate) show_utilities_window: bool,
     pub(crate) apps: Vec<SignerAppReal>,
+    pub(crate) apps_loading: bool,
+    pub(crate) previous_selected_device: Option<u32>,
 }
 
 impl Default for ImpactorApp {
@@ -80,6 +81,8 @@ impl Default for ImpactorApp {
             win32_hwnd: None,
             show_utilities_window: false,
             apps: Vec::new(),
+            apps_loading: false,
+            previous_selected_device: None,
         }
     }
 }
@@ -155,7 +158,7 @@ impl eframe::App for ImpactorApp {
                         }
                     }
 
-                    egui::ComboBox::from_id_salt("device_picker")
+                    let device_changed = egui::ComboBox::from_id_salt("device_picker")
                         .selected_text(
                             self.selected_device
                                 .and_then(|id| self.devices.iter().find(|d| d.device_id == id))
@@ -163,29 +166,45 @@ impl eframe::App for ImpactorApp {
                                 .unwrap_or_else(|| "No device".into()),
                         )
                         .show_ui(ui, |ui| {
+                            let mut changed = false;
                             for dev in &self.devices {
-                                ui.selectable_value(
-                                    &mut self.selected_device,
-                                    Some(dev.device_id),
-                                    dev.to_string(),
-                                );
+                                if ui
+                                    .selectable_value(
+                                        &mut self.selected_device,
+                                        Some(dev.device_id),
+                                        dev.to_string(),
+                                    )
+                                    .changed()
+                                {
+                                    changed = true;
+                                }
                             }
-                        });
+                            changed
+                        })
+                        .inner
+                        .unwrap_or(false);
 
-                    if let Some(device_id) = self.selected_device {
-                        if ui.button("Pair").clicked() {
-                            let selected_device = self
-                                .devices
-                                .iter()
-                                .find(|d| Some(d.device_id) == Some(device_id));
+                    if device_changed && self.show_utilities_window {
+                        if self.selected_device != self.previous_selected_device {
+                            self.previous_selected_device = self.selected_device;
+                            if let Some(device_id) = self.selected_device {
+                                if let Some(device) = self
+                                    .devices
+                                    .iter()
+                                    .find(|d| d.device_id == device_id)
+                                    .cloned()
+                                {
+                                    if !device.is_mac {
+                                        self.apps_loading = true;
+                                        let (tx, rx) = mpsc::unbounded_channel::<AppMessage>();
+                                        self.receiver = Some(rx);
 
-                            let (tx, rx) = mpsc::unbounded_channel::<AppMessage>();
-                            self.receiver = Some(rx);
-
-                            spawn_apps_handler(selected_device.cloned(), move |apps| {
-                                let _ = tx.send(AppMessage::InstalledAppsUpdated(apps));
-                            });
-                            // spawn_pair_handler(selected_device.cloned());
+                                        spawn_apps_handler(Some(device), move |apps| {
+                                            let _ = tx.send(AppMessage::InstalledAppsUpdated(apps));
+                                        });
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -195,6 +214,27 @@ impl eframe::App for ImpactorApp {
                         }
                         if ui.button("Utilities").clicked() {
                             self.show_utilities_window = true;
+
+                            self.previous_selected_device = self.selected_device;
+
+                            if let Some(device_id) = self.selected_device {
+                                if let Some(device) = self
+                                    .devices
+                                    .iter()
+                                    .find(|d| d.device_id == device_id)
+                                    .cloned()
+                                {
+                                    if !device.is_mac {
+                                        self.apps_loading = true;
+                                        let (tx, rx) = mpsc::unbounded_channel::<AppMessage>();
+                                        self.receiver = Some(rx);
+
+                                        spawn_apps_handler(Some(device), move |apps| {
+                                            let _ = tx.send(AppMessage::InstalledAppsUpdated(apps));
+                                        });
+                                    }
+                                }
+                            }
                         }
                     });
                 });
@@ -216,37 +256,108 @@ impl eframe::App for ImpactorApp {
         crate::login::ui_login(ctx, &mut self.login_ui, self.sender.as_ref());
 
         if self.show_utilities_window {
-            let show = &mut self.show_utilities_window;
             let apps = self.apps.clone();
+            let apps_loading = self.apps_loading;
             let device = self
                 .devices
                 .iter()
                 .find(|d| Some(d.device_id) == self.selected_device)
                 .cloned();
-            ctx.show_viewport_immediate(
-                egui::ViewportId::from_hash_of("utilities_window"),
-                egui::ViewportBuilder::default()
-                    .with_title("Utilities")
-                    .with_inner_size([400.0, 300.0]),
-                move |ui, _| {
-                    egui::CentralPanel::default().show(ui, |ui| {
-                        ui.label("Installed Apps:");
 
-                        for app in &apps {
-                            ui.horizontal(|ui| {
-                                ui.label(format!("{} ({:?})", app.app.to_string(), app.bundle_id));
-                                if ui.button("Install").clicked() {
-                                    spawn_apps_pair_handler(device.clone(), app.clone());
+            let mut show_mac_error = false;
+            let mut refresh_clicked = false;
+            let selected_device_for_refresh = device.clone();
+
+            egui::Window::new("Utilities")
+                .open(&mut self.show_utilities_window)
+                .resizable(true)
+                .default_size([400.0, 300.0])
+                .show(ctx, |ui| {
+                    if let Some(device_id) = self.selected_device {
+                        let selected_device = self
+                            .devices
+                            .iter()
+                            .find(|d| Some(d.device_id) == Some(device_id));
+
+                        if let Some(selected_device) = selected_device.as_ref() {
+                            ui.label(selected_device.name.clone());
+                        }
+                    }
+
+                    if let Some(device_id) = self.selected_device {
+                        if ui.button("Trust Device").clicked() {
+                            let selected_device = self
+                                .devices
+                                .iter()
+                                .find(|d| Some(d.device_id) == Some(device_id));
+                            spawn_pair_handler(selected_device.cloned());
+                        }
+                    }
+                    ui.label("Installed Apps:");
+                    ui.separator();
+
+                    if self.selected_device.is_some() {
+                        if ui.button("Refresh").clicked() {
+                            if let Some(device) = selected_device_for_refresh.as_ref() {
+                                if device.is_mac {
+                                    show_mac_error = true;
+                                } else {
+                                    refresh_clicked = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if apps_loading {
+                        ui.horizontal(|ui| {
+                            ui.spinner();
+                            ui.label("Loading apps...");
+                        });
+                    } else if device.as_ref().map(|d| d.is_mac).unwrap_or(false) {
+                        ui.colored_label(
+                            ui.visuals().error_fg_color,
+                            "Cannot list apps on Mac devices",
+                        );
+                    } else {
+                        egui::ScrollArea::vertical()
+                            .auto_shrink([false; 2])
+                            .show(ui, |ui| {
+                                for app in &apps {
+                                    ui.horizontal(|ui| {
+                                        ui.vertical(|ui| {
+                                            ui.heading(app.app.to_string());
+                                            ui.label(format!(
+                                                "{}",
+                                                app.bundle_id.as_deref().unwrap_or("???")
+                                            ));
+                                        });
+
+                                        if ui.button("Install").clicked() {
+                                            spawn_apps_pair_handler(device.clone(), app.clone());
+                                        }
+                                    });
+
+                                    ui.separator();
                                 }
                             });
-                        }
-                    });
-
-                    if ui.input(|i| i.viewport().close_requested()) {
-                        *show = false;
                     }
-                },
-            );
+                });
+
+            if show_mac_error {
+                self.handle_message(AppMessage::Error(
+                    "Cannot list apps on Mac devices".to_string(),
+                ));
+            }
+
+            if refresh_clicked {
+                self.apps_loading = true;
+                let (tx, rx) = mpsc::unbounded_channel::<AppMessage>();
+                self.receiver = Some(rx);
+
+                spawn_apps_handler(selected_device_for_refresh, move |apps| {
+                    let _ = tx.send(AppMessage::InstalledAppsUpdated(apps));
+                });
+            }
         }
 
         ctx.request_repaint();
@@ -755,13 +866,24 @@ impl ImpactorApp {
         match msg {
             AppMessage::DeviceConnected(device) => {
                 if !self.devices.iter().any(|d| d.device_id == device.device_id) {
-                    self.devices.push(device);
+                    self.devices.push(device.clone());
                     self.tray_menu_dirty = true;
 
                     if self.selected_device.is_none() {
                         if let Some(first) = self.devices.first() {
                             self.selected_device = Some(first.device_id);
                         }
+                    }
+
+                    if self.show_utilities_window && self.selected_device == Some(device.device_id)
+                    {
+                        self.apps_loading = true;
+                        let (tx, rx) = mpsc::unbounded_channel::<AppMessage>();
+                        self.receiver = Some(rx);
+
+                        spawn_apps_handler(Some(device), move |apps| {
+                            let _ = tx.send(AppMessage::InstalledAppsUpdated(apps));
+                        });
                     }
                 }
             }
@@ -847,6 +969,7 @@ impl ImpactorApp {
             }
             AppMessage::InstalledAppsUpdated(apps) => {
                 self.apps = apps;
+                self.apps_loading = false;
             }
         }
     }

@@ -160,7 +160,7 @@ impl SignerApp {
             ("thewonderofyou.Feather", SignerApp::Feather),
             ("com.SideStore.SideStore", SignerApp::SideStore),
             ("com.rileytestut.AltStore", SignerApp::AltStore),
-            ("com.stik.js", SignerApp::StikDebug),
+            ("com.stik.sj", SignerApp::StikDebug),
             ("com.kdt.SparseBox", SignerApp::SparseBox),
         ];
 

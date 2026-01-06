@@ -7,8 +7,8 @@ use idevice::lockdown::LockdownClient;
 use idevice::usbmuxd::{Connection, UsbmuxdAddr, UsbmuxdDevice};
 use idevice::utils::installation;
 
+use crate::Error;
 use crate::options::SignerAppReal;
-use crate::{Error, SignerApp};
 use idevice::afc::opcode::AfcFopenMode;
 use idevice::house_arrest::HouseArrestClient;
 use idevice::usbmuxd::UsbmuxdConnection;

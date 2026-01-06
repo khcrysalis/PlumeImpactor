@@ -5,7 +5,7 @@ use std::sync::{
 };
 use std::{cell::RefCell, rc::Rc, sync::mpsc as std_mpsc};
 
-use tray_icon::{Icon, TrayIcon, TrayIconBuilder, menu::MenuEvent};
+use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent, menu::MenuEvent};
 
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::{
@@ -31,6 +31,7 @@ pub fn setup_tray(
 
     MenuEvent::set_event_handler(Some({
         let ctx = ctx.clone();
+        let win32_hwnd = win32_hwnd.clone();
         move |event: MenuEvent| {
             if event.id.as_ref() == "quit" {
                 std::process::exit(0);
@@ -41,6 +42,19 @@ pub fn setup_tray(
 
             let _ = menu_tx.send(event);
             ctx.request_repaint();
+        }
+    }));
+
+    TrayIconEvent::set_event_handler(Some({
+        let ctx = ctx.clone();
+        move |event: TrayIconEvent| {
+            if let TrayIconEvent::DoubleClick { .. } = event.clone() {
+                restore_window_from_tray(win32_hwnd.load(Ordering::Acquire));
+            }
+            ctx.request_repaint();
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
         }
     }));
 

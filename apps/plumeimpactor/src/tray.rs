@@ -5,7 +5,10 @@ use std::sync::{
 };
 use std::{cell::RefCell, rc::Rc, sync::mpsc as std_mpsc};
 
-use tray_icon::{Icon, TrayIcon, TrayIconBuilder, menu::MenuEvent};
+use tray_icon::{
+    Icon, MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent,
+    menu::{MenuEvent, MenuId},
+};
 
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::{
@@ -22,6 +25,7 @@ pub fn setup_tray(
     let icon = load_tray_icon();
 
     let tray_icon = TrayIconBuilder::new()
+        .with_menu_on_left_click(false)
         .with_icon(icon)
         .with_tooltip(crate::APP_NAME)
         .build()
@@ -31,6 +35,8 @@ pub fn setup_tray(
 
     MenuEvent::set_event_handler(Some({
         let ctx = ctx.clone();
+        let win32_hwnd = win32_hwnd.clone();
+        let menu_tx = menu_tx.clone();
         move |event: MenuEvent| {
             if event.id.as_ref() == "quit" {
                 std::process::exit(0);
@@ -41,6 +47,23 @@ pub fn setup_tray(
 
             let _ = menu_tx.send(event);
             ctx.request_repaint();
+        }
+    }));
+
+    TrayIconEvent::set_event_handler(Some({
+        let ctx = ctx.clone();
+        move |event: TrayIconEvent| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                ..
+            } = event
+            {
+                restore_window_from_tray(win32_hwnd.load(Ordering::Acquire));
+                let _ = menu_tx.send(MenuEvent {
+                    id: MenuId::new("open"),
+                });
+                ctx.request_repaint();
+            }
         }
     }));
 

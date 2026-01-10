@@ -88,7 +88,7 @@ impl Default for ImpactorApp {
 }
 
 impl eframe::App for ImpactorApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ctx: &mut egui::Ui, _frame: &mut eframe::Frame) {
         if ctx.input(|i| i.viewport().close_requested()) {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
@@ -144,7 +144,7 @@ impl eframe::App for ImpactorApp {
         }
 
         // ---------------- UI ----------------
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ctx, |ui| {
             if !self.show_settings {
                 ui.horizontal(|ui| {
                     if ui.button(" + ").clicked() {

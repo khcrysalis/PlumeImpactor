@@ -21,8 +21,8 @@ plume_store = { path = "../../crates/plume_store" }
 rustls = { version = "0.23.32", features = ["ring"] }
 
 # GUI
-egui = "0.33.3"
-eframe = { version = "0.33.3", default-features = false, features = [
+egui = { git = "https://github.com/PlumeImpactor/plume-egui", rev = "2b94e786" }
+eframe = { git = "https://github.com/PlumeImpactor/plume-egui", rev = "2b94e786", default-features = false, features = [
     "wgpu",
     "glow",
     "x11",

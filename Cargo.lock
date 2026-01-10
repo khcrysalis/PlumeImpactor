@@ -5306,11 +5306,11 @@ dependencies = [
 
 [[package]]
 name = "plume_gestalt"
-version = "1.4.0"
+version = "1.4.1"
 
 [[package]]
 name = "plume_store"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "plume_core",
  "serde",

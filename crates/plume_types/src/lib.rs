@@ -8,9 +8,10 @@ mod tweak;
 use std::path::Path;
 
 pub use bundle::{Bundle, BundleType}; // Bundle helper
-pub use device::{Device, get_device_for_id}; // Device helper
+pub use device::{Device, get_device_for_id, install_app_mac}; // Device helper
 pub use options::{
-    SignerApp,         // Supported app types
+    SignerApp, // Supported app types
+    SignerAppReal,
     SignerEmbedding,   // Embedding options
     SignerFeatures,    // Feature support options
     SignerInstallMode, // Installation mode
@@ -75,10 +76,10 @@ async fn copy_dir_recursively(src: &Path, dst: &Path) -> Result<(), Error> {
         let dst_path = dst.join(entry.file_name());
 
         if file_type.is_symlink() {
-            let target = fs::read_link(&src_path).await?;
             #[cfg(unix)]
             {
                 use std::os::unix::fs::symlink;
+                let target = fs::read_link(&src_path).await?;
                 symlink(&target, &dst_path)?;
             }
         } else if file_type.is_dir() {

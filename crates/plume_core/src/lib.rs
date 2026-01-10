@@ -1,6 +1,5 @@
 pub mod auth;
 pub mod developer;
-pub mod store;
 mod utils;
 
 pub use apple_codesign::{AppleCodesignError, SettingsScope, SigningSettings, UnifiedSigner};

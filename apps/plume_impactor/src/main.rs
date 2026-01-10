@@ -14,6 +14,11 @@ fn main() -> iced::Result {
     env_logger::init();
     let _ = rustls::crypto::ring::default_provider().install_default();
 
+    #[cfg(target_os = "linux")]
+    {
+        gtk::init().expect("GTK init failed");
+    }
+
     iced::daemon(Counter::new, Counter::update, Counter::view)
         .subscription(Counter::subscription)
         .title(APP_NAME)
@@ -28,6 +33,8 @@ enum Message {
     AsyncOperationComplete(i64),
     TrayMenuClicked(tray_icon::menu::MenuId),
     TrayIconClicked,
+    #[cfg(target_os = "linux")]
+    GtkTick,
     ShowWindow,
     HideWindow,
     WindowClosed(window::Id),
@@ -116,6 +123,12 @@ impl Counter {
 
             Message::TrayIconClicked => Task::done(Message::ShowWindow),
 
+            #[cfg(target_os = "linux")]
+            Message::GtkTick => {
+                while gtk::glib::MainContext::default().iteration(false) {}
+                Task::none()
+            }
+
             Message::TrayMenuClicked(id) => {
                 if id == self.quit_item_id {
                     Task::done(Message::Quit)
@@ -194,7 +207,11 @@ impl Counter {
                                     _ => {}
                                 }
                             }
-                            std::thread::sleep(std::time::Duration::from_millis(32));
+                            #[cfg(target_os = "linux")]
+                            {
+                                let _ = tx.unbounded_send(Message::GtkTick);
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(50));
                         }
                     });
 

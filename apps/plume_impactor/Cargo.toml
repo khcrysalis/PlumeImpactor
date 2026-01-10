@@ -23,3 +23,6 @@ rustls = { version = "0.23.32", features = ["ring"] }
 iced = "0.14.0"
 tray-icon = { version = "0.21.2", default-features = false }
 image = "0.25"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"

@@ -5270,7 +5270,7 @@ dependencies = [
 
 [[package]]
 name = "plume_core"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -5320,7 +5320,7 @@ dependencies = [
 
 [[package]]
 name = "plume_utils"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "decompress",
  "futures",
@@ -5337,7 +5337,7 @@ dependencies = [
 
 [[package]]
 name = "plumeimpactor"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "eframe",
  "egui",
@@ -5365,7 +5365,7 @@ dependencies = [
 
 [[package]]
 name = "plumesign"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "anyhow",
  "clap",

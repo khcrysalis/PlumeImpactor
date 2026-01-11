@@ -100,6 +100,10 @@ pub(crate) fn tray_subscription() -> Subscription<Message> {
                                 _ => {}
                             }
                         }
+                        #[cfg(target_os = "linux")]
+                        {
+                            let _ = tx.unbounded_send(Message::GtkTick);
+                        }
                         std::thread::sleep(std::time::Duration::from_millis(32));
                     }
                 });

@@ -34,8 +34,9 @@ fn main() -> iced::Result {
         .run()
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub enum Message {
+pub(crate) enum Message {
     NavigateToScreen(ImpactorScreen),
     NextScreen,
     PreviousScreen,
@@ -84,7 +85,7 @@ pub enum Message {
     InstallationFinished,
 }
 
-struct Impactor {
+pub(crate) struct Impactor {
     current_screen: ImpactorScreen,
     previous_screen: Option<ImpactorScreen>,
     devices: Vec<Device>,
@@ -98,7 +99,7 @@ struct Impactor {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ImpactorScreen {
+pub(crate) enum ImpactorScreen {
     Main,
     Settings,
     Installer,
@@ -106,7 +107,7 @@ pub enum ImpactorScreen {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct ImpactorInstaller {
+pub(crate) struct ImpactorInstaller {
     pub selected_package_file: Option<Package>,
     pub package_options: SignerOptions,
     pub is_installing: bool,

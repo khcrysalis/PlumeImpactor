@@ -198,6 +198,7 @@ pub(crate) async fn run_installation(
 
     let package_file: std::path::PathBuf;
     let mut options = options;
+    let callback = Arc::new(callback);
 
     callback("Preparing package...".to_string(), 10);
 
@@ -303,8 +304,12 @@ pub(crate) async fn run_installation(
                 if !dev.is_mac {
                     callback("Installing...".to_string(), 80);
 
-                    dev.install_app(&package_file, |progress: i32| async move {
-                        let _ = progress;
+                    let callback_clone = Arc::clone(&callback);
+                    dev.install_app(&package_file, move |progress: i32| {
+                        let callback = Arc::clone(&callback_clone);
+                        async move {
+                            callback("Installing...".to_string(), 80 + (progress / 5));
+                        }
                     })
                     .await
                     .map_err(|e| e.to_string())?;

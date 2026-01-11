@@ -1,127 +1,59 @@
-#[cfg(target_os = "windows")]
-use std::sync::{
-    Arc,
-    atomic::{AtomicIsize, Ordering},
-};
-use std::{cell::RefCell, rc::Rc, sync::mpsc as std_mpsc};
-
 use tray_icon::{
-    Icon, MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent,
-    menu::{MenuEvent, MenuId},
+    TrayIcon,
+    menu::{Menu, MenuId, MenuItem, PredefinedMenuItem},
 };
 
-#[cfg(target_os = "windows")]
-use windows_sys::Win32::{
-    Foundation::HWND,
-    UI::WindowsAndMessaging::{SW_RESTORE, SW_SHOW, SetForegroundWindow, ShowWindow},
-};
-
-#[cfg(target_os = "windows")]
-pub fn setup_tray(
-    tray: &Rc<RefCell<Option<TrayIcon>>>,
-    ctx: &egui::Context,
-    win32_hwnd: Arc<AtomicIsize>,
-) -> std_mpsc::Receiver<MenuEvent> {
-    let icon = load_tray_icon();
-
-    let tray_icon = TrayIconBuilder::new()
-        .with_menu_on_left_click(false)
-        .with_icon(icon)
+pub(crate) fn build_tray_icon(menu: &Menu) -> TrayIcon {
+    let icon = load_icon();
+    tray_icon::TrayIconBuilder::new()
+        .with_menu(Box::new(menu.clone()))
         .with_tooltip(crate::APP_NAME)
-        .build()
-        .unwrap();
-
-    let (menu_tx, menu_rx) = std_mpsc::channel();
-
-    MenuEvent::set_event_handler(Some({
-        let ctx = ctx.clone();
-        let win32_hwnd = win32_hwnd.clone();
-        let menu_tx = menu_tx.clone();
-        move |event: MenuEvent| {
-            if event.id.as_ref() == "quit" {
-                std::process::exit(0);
-            }
-            if event.id.as_ref() == "open" {
-                restore_window_from_tray(win32_hwnd.load(Ordering::Acquire));
-            }
-
-            let _ = menu_tx.send(event);
-            ctx.request_repaint();
-        }
-    }));
-
-    TrayIconEvent::set_event_handler(Some({
-        let ctx = ctx.clone();
-        move |event: TrayIconEvent| {
-            if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                ..
-            } = event
-            {
-                restore_window_from_tray(win32_hwnd.load(Ordering::Acquire));
-                let _ = menu_tx.send(MenuEvent {
-                    id: MenuId::new("open"),
-                });
-                ctx.request_repaint();
-            }
-        }
-    }));
-
-    tray.borrow_mut().replace(tray_icon);
-
-    menu_rx
-}
-
-#[cfg(target_os = "windows")]
-fn restore_window_from_tray(hwnd: isize) {
-    if hwnd == 0 {
-        return;
-    }
-
-    unsafe {
-        _ = ShowWindow(hwnd as HWND, SW_SHOW);
-        _ = ShowWindow(hwnd as HWND, SW_RESTORE);
-        _ = SetForegroundWindow(hwnd as HWND);
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-pub fn setup_tray(
-    tray: &Rc<RefCell<Option<TrayIcon>>>,
-    ctx: &egui::Context,
-) -> std_mpsc::Receiver<MenuEvent> {
-    let icon = load_tray_icon();
-
-    let tray_icon = TrayIconBuilder::new()
         .with_icon(icon)
-        .with_tooltip(crate::APP_NAME)
         .build()
-        .unwrap();
-
-    let (menu_tx, menu_rx) = std_mpsc::channel();
-
-    MenuEvent::set_event_handler(Some({
-        let ctx = ctx.clone();
-        move |event: MenuEvent| {
-            let _ = menu_tx.send(event);
-            ctx.request_repaint();
-        }
-    }));
-
-    tray.borrow_mut().replace(tray_icon);
-
-    menu_rx
+        .expect("Failed to build tray icon")
 }
 
-// -----------------------------------------------------------------------------
-// Images
-// -----------------------------------------------------------------------------
-
-fn load_tray_icon() -> Icon {
+fn load_icon() -> tray_icon::Icon {
     let bytes = include_bytes!("./tray.png");
     let image = image::load_from_memory(bytes)
-        .expect("tray.png is invalid")
+        .expect("Failed to load icon bytes")
         .to_rgba8();
     let (width, height) = image.dimensions();
-    Icon::from_rgba(image.into_raw(), width, height).expect("tray icon data invalid")
+    tray_icon::Icon::from_rgba(image.into_raw(), width, height).unwrap()
+}
+
+pub(crate) struct ImpactorTray {
+    #[allow(dead_code)]
+    icon: TrayIcon,
+    show_item_id: MenuId,
+    quit_item_id: MenuId,
+}
+
+impl ImpactorTray {
+    pub(crate) fn new() -> Self {
+        let tray_menu = Menu::new();
+        let show_item = MenuItem::new("Open", true, None);
+        let quit_item = MenuItem::new(format!("Quit {}", crate::APP_NAME), true, None);
+
+        let show_item_id = show_item.id().clone();
+        let quit_item_id = quit_item.id().clone();
+
+        let _ = tray_menu.append_items(&[&show_item, &PredefinedMenuItem::separator(), &quit_item]);
+
+        let icon = build_tray_icon(&tray_menu);
+
+        Self {
+            icon,
+            show_item_id,
+            quit_item_id,
+        }
+    }
+
+    pub(crate) fn is_show_clicked(&self, id: &MenuId) -> bool {
+        *id == self.show_item_id
+    }
+
+    pub(crate) fn is_quit_clicked(&self, id: &MenuId) -> bool {
+        *id == self.quit_item_id
+    }
 }

@@ -21,6 +21,11 @@ fn main() -> iced::Result {
     env_logger::init();
     let _ = rustls::crypto::ring::default_provider().install_default();
 
+    #[cfg(target_os = "linux")]
+    {
+        gtk::init().expect("GTK init failed");
+    }
+
     iced::daemon(Impactor::new, Impactor::update, Impactor::view)
         .subscription(Impactor::subscription)
         .title(APP_NAME_VERSIONED)
@@ -39,6 +44,8 @@ pub enum Message {
     DeviceDisconnected(u32),
     TrayMenuClicked(tray_icon::menu::MenuId),
     TrayIconClicked,
+    #[cfg(target_os = "linux")]
+    GtkTick,
     ShowWindow,
     HideWindow,
     Quit,
@@ -232,6 +239,11 @@ impl Impactor {
                 } else {
                     Task::none()
                 }
+            }
+            #[cfg(target_os = "linux")]
+            Message::GtkTick => {
+                while gtk::glib::MainContext::default().iteration(false) {}
+                Task::none()
             }
             Message::ShowWindow => {
                 if let Some(id) = self.main_window {

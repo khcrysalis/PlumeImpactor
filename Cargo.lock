@@ -5960,6 +5960,7 @@ version = "1.4.1"
 dependencies = [
  "env_logger",
  "futures",
+ "gtk",
  "iced",
  "iced_aw",
  "idevice",

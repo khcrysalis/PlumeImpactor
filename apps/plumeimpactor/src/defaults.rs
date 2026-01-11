@@ -12,18 +12,24 @@ pub(crate) fn default_settings() -> iced::Settings {
 }
 
 pub(crate) fn default_window_settings() -> iced::window::Settings {
+    let platform_specific = if cfg!(target_os = "macos") {
+        iced::window::settings::PlatformSpecific {
+            titlebar_transparent: true,
+            title_hidden: true,
+            fullsize_content_view: true,
+            ..Default::default()
+        }
+    } else {
+        iced::window::settings::PlatformSpecific::default()
+    };
+
     iced::window::Settings {
         size: iced::Size::new(555.0, 300.0),
         position: iced::window::Position::Centered,
         exit_on_close_request: false,
         resizable: false,
         icon: Some(load_window_icon()),
-        platform_specific: iced::window::settings::PlatformSpecific {
-            titlebar_transparent: true,
-            title_hidden: true,
-            fullsize_content_view: true,
-            ..Default::default()
-        },
+        platform_specific: platform_specific,
         ..Default::default()
     }
 }

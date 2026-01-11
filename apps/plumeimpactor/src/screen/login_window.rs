@@ -24,6 +24,7 @@ pub struct LoginWindow {
     email: String,
     password: String,
     two_factor_code: String,
+    login_error: Option<String>,
     two_factor_error: Option<String>,
     is_logging_in: bool,
     show_two_factor: bool,
@@ -46,6 +47,7 @@ impl LoginWindow {
                 email: String::new(),
                 password: String::new(),
                 two_factor_code: String::new(),
+                login_error: None,
                 two_factor_error: None,
                 is_logging_in: false,
                 show_two_factor: false,
@@ -71,12 +73,14 @@ impl LoginWindow {
             }
             Message::LoginSubmit => {
                 if self.email.trim().is_empty() || self.password.is_empty() {
-                    return Task::done(Message::LoginFailed(
-                        "Email and password required".to_string(),
-                    ));
+                    self.login_error = Some("Email and password required".to_string());
+                    return Task::none();
                 }
 
                 self.is_logging_in = true;
+                self.show_two_factor = false;
+                self.login_error = None;
+                self.two_factor_error = None;
                 let email = self.email.trim().to_string();
                 let password = self.password.clone();
                 self.password.clear();
@@ -89,6 +93,8 @@ impl LoginWindow {
             Message::RequestTwoFactor => {
                 self.show_two_factor = true;
                 self.is_logging_in = false;
+                self.login_error = None;
+                self.two_factor_error = None;
                 Task::none()
             }
             Message::LoginCancel => {
@@ -100,6 +106,7 @@ impl LoginWindow {
                 }
             }
             Message::LoginSuccess(account) => {
+                self.login_error = None;
                 let path = crate::defaults::get_data_path().join("accounts.json");
 
                 if let Ok(mut store) = tokio::runtime::Runtime::new()
@@ -118,21 +125,20 @@ impl LoginWindow {
             }
             Message::LoginFailed(error) => {
                 self.is_logging_in = false;
-                self.show_two_factor = false;
-                self.two_factor_code.clear();
+                if self.show_two_factor {
+                    self.two_factor_error = Some(error);
+                    self.login_error = None;
+                } else {
+                    self.two_factor_code.clear();
+                    self.two_factor_error = None;
+                    self.login_error = Some(error);
+                }
                 self.two_factor_tx = None;
-
-                std::thread::spawn(move || {
-                    rfd::MessageDialog::new()
-                        .set_title("Login Failed")
-                        .set_description(&error)
-                        .set_buttons(rfd::MessageButtons::Ok)
-                        .show();
-                });
                 Task::none()
             }
             Message::TwoFactorCodeChanged(code) => {
                 self.two_factor_code = code;
+                self.two_factor_error = None;
                 Task::none()
             }
             Message::TwoFactorSubmit => {
@@ -145,6 +151,7 @@ impl LoginWindow {
                 if let Some(tx) = &self.two_factor_tx {
                     let _ = tx.send(Ok(code));
                 }
+                self.is_logging_in = true;
                 Task::none()
             }
             Message::TwoFactorCancel => {
@@ -174,11 +181,14 @@ impl LoginWindow {
             .padding(8)
             .width(Fill);
 
-        let password_input = text_input("Password", &self.password)
+        let mut password_input = text_input("Password", &self.password)
             .on_input(Message::PasswordChanged)
             .secure(true)
             .padding(8)
             .width(Fill);
+        if !self.is_logging_in {
+            password_input = password_input.on_submit(Message::LoginSubmit);
+        }
 
         let mut content = column![
             text("Your Apple ID is used to sign and install apps. Credentials sent only to Apple.")
@@ -190,6 +200,12 @@ impl LoginWindow {
         ]
         .spacing(10)
         .align_x(Alignment::Start);
+
+        if let Some(error) = &self.login_error {
+            content = content.push(text(error).style(|_theme| text::Style {
+                color: Some(iced::Color::from_rgb(1.0, 0.3, 0.3)),
+            }));
+        }
 
         let buttons = row![
             container(text("")).width(Fill),
@@ -216,10 +232,13 @@ impl LoginWindow {
     }
 
     fn view_two_factor(&self) -> Element<'_, Message> {
-        let code_input = text_input("Verification Code", &self.two_factor_code)
+        let mut code_input = text_input("Verification Code", &self.two_factor_code)
             .on_input(Message::TwoFactorCodeChanged)
             .padding(8)
             .width(Fill);
+        if !self.is_logging_in {
+            code_input = code_input.on_submit(Message::TwoFactorSubmit);
+        }
 
         let mut content = column![
             text("Two-Factor Authentication").size(20),
@@ -240,8 +259,16 @@ impl LoginWindow {
             button("Cancel")
                 .on_press(Message::TwoFactorCancel)
                 .padding(8),
-            button("Verify")
-                .on_press(Message::TwoFactorSubmit)
+            button(if self.is_logging_in {
+                "Verifying..."
+            } else {
+                "Verify"
+            })
+                .on_press_maybe(if self.is_logging_in {
+                    None
+                } else {
+                    Some(Message::TwoFactorSubmit)
+                })
                 .padding(8)
                 .style(button::primary),
         ]

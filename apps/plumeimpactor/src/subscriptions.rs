@@ -5,15 +5,32 @@ use tray_icon::{TrayIconEvent, menu::MenuEvent};
 
 use plume_utils::Device;
 
-use crate::Message;
+#[derive(Debug, Clone)]
+pub enum DeviceMessage {
+    Connected(Device),
+    Disconnected(u32),
+}
 
-pub(crate) fn device_listener() -> Subscription<Message> {
+#[derive(Debug, Clone)]
+pub enum TrayMessage {
+    MenuClicked(tray_icon::menu::MenuId),
+    IconClicked,
+}
+
+#[derive(Debug, Clone)]
+pub enum FileHoverMessage {
+    Hovered,
+    HoveredLeft,
+    Dropped(Vec<std::path::PathBuf>),
+}
+
+pub(crate) fn device_listener() -> Subscription<DeviceMessage> {
     Subscription::run(|| {
         iced::stream::channel(
             100,
-            |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
+            |mut output: iced::futures::channel::mpsc::Sender<DeviceMessage>| async move {
                 use iced::futures::{SinkExt, StreamExt};
-                let (tx, mut rx) = iced::futures::channel::mpsc::unbounded::<Message>();
+                let (tx, mut rx) = iced::futures::channel::mpsc::unbounded::<DeviceMessage>();
 
                 std::thread::spawn(move || {
                     let rt = tokio::runtime::Builder::new_current_thread()
@@ -25,7 +42,7 @@ pub(crate) fn device_listener() -> Subscription<Message> {
                         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
                         {
                             if let Some(mac_udid) = plume_gestalt::get_udid() {
-                                let _ = tx.unbounded_send(Message::DeviceConnected(Device {
+                                let _ = tx.unbounded_send(DeviceMessage::Connected(Device {
                                     name: "This Mac".into(),
                                     udid: mac_udid,
                                     device_id: u32::MAX,
@@ -42,7 +59,7 @@ pub(crate) fn device_listener() -> Subscription<Message> {
                         if let Ok(devices) = muxer.get_devices().await {
                             for dev in devices {
                                 let device = Device::new(dev).await;
-                                let _ = tx.unbounded_send(Message::DeviceConnected(device));
+                                let _ = tx.unbounded_send(DeviceMessage::Connected(device));
                             }
                         }
 
@@ -53,10 +70,10 @@ pub(crate) fn device_listener() -> Subscription<Message> {
                         while let Some(event) = stream.next().await {
                             let msg = match event {
                                 Ok(UsbmuxdListenEvent::Connected(dev)) => {
-                                    Message::DeviceConnected(Device::new(dev).await)
+                                    DeviceMessage::Connected(Device::new(dev).await)
                                 }
                                 Ok(UsbmuxdListenEvent::Disconnected(id)) => {
-                                    Message::DeviceDisconnected(id)
+                                    DeviceMessage::Disconnected(id)
                                 }
                                 Err(_) => continue,
                             };
@@ -73,20 +90,20 @@ pub(crate) fn device_listener() -> Subscription<Message> {
     })
 }
 
-pub(crate) fn tray_subscription() -> Subscription<Message> {
+pub(crate) fn tray_subscription() -> Subscription<TrayMessage> {
     Subscription::run(|| {
         iced::stream::channel(
             100,
-            |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
+            |mut output: iced::futures::channel::mpsc::Sender<TrayMessage>| async move {
                 use iced::futures::{SinkExt, StreamExt};
-                let (tx, mut rx) = iced::futures::channel::mpsc::unbounded::<Message>();
+                let (tx, mut rx) = iced::futures::channel::mpsc::unbounded::<TrayMessage>();
 
                 std::thread::spawn(move || {
                     let menu_channel = MenuEvent::receiver();
                     let tray_channel = TrayIconEvent::receiver();
                     loop {
                         if let Ok(event) = menu_channel.try_recv() {
-                            let _ = tx.unbounded_send(Message::TrayMenuClicked(event.id));
+                            let _ = tx.unbounded_send(TrayMessage::MenuClicked(event.id));
                         }
 
                         if let Ok(event) = tray_channel.try_recv() {
@@ -95,14 +112,10 @@ pub(crate) fn tray_subscription() -> Subscription<Message> {
                                     button: tray_icon::MouseButton::Left,
                                     ..
                                 } => {
-                                    let _ = tx.unbounded_send(Message::TrayIconClicked);
+                                    let _ = tx.unbounded_send(TrayMessage::IconClicked);
                                 }
                                 _ => {}
                             }
-                        }
-                        #[cfg(target_os = "linux")]
-                        {
-                            let _ = tx.unbounded_send(Message::GtkTick);
                         }
                         std::thread::sleep(std::time::Duration::from_millis(32));
                     }
@@ -116,49 +129,48 @@ pub(crate) fn tray_subscription() -> Subscription<Message> {
     })
 }
 
-pub(crate) fn file_hover_subscription() -> Subscription<Message> {
+pub(crate) fn file_hover_subscription() -> Subscription<FileHoverMessage> {
     let window_events = window::events().filter_map(|(_id, event)| match event {
-        window::Event::CloseRequested => Some(Message::HideWindow),
-        window::Event::FileHovered(_) => Some(Message::FilesHovered),
-        window::Event::FilesHoveredLeft => Some(Message::FilesHoveredLeft),
-        window::Event::FileDropped(path) => Some(Message::FilesDropped(vec![path])),
+        window::Event::FileHovered(_) => Some(FileHoverMessage::Hovered),
+        window::Event::FilesHoveredLeft => Some(FileHoverMessage::HoveredLeft),
+        window::Event::FileDropped(path) => Some(FileHoverMessage::Dropped(vec![path])),
         _ => None,
     });
 
     window_events
 }
 
-// Helper struct to make Arc<Mutex<Receiver>> hashable
-#[derive(Clone)]
-struct ProgressReceiver(Arc<std::sync::Mutex<std::sync::mpsc::Receiver<(String, i32)>>>);
-
-impl std::hash::Hash for ProgressReceiver {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // Hash the pointer address to uniquely identify this receiver
-        Arc::as_ptr(&self.0).hash(state);
-    }
-}
-
 pub(crate) fn installation_progress_listener(
     progress_rx: Option<Arc<std::sync::Mutex<std::sync::mpsc::Receiver<(String, i32)>>>>,
-) -> Subscription<Message> {
+) -> Subscription<(String, i32)> {
     match progress_rx {
         Some(rx) => {
-            let receiver = ProgressReceiver(rx);
-            Subscription::run_with(receiver, |receiver| {
-                let rx = receiver.0.clone();
+            struct State {
+                rx: Arc<std::sync::Mutex<std::sync::mpsc::Receiver<(String, i32)>>>,
+            }
+
+            impl std::hash::Hash for State {
+                fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                    Arc::as_ptr(&self.rx).hash(state);
+                }
+            }
+
+            let state = State { rx };
+            Subscription::run_with(state, |state| {
+                let rx = state.rx.clone();
                 iced::stream::channel(
                     100,
-                    move |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
+                    move |mut output: iced::futures::channel::mpsc::Sender<(String, i32)>| async move {
                         use iced::futures::{SinkExt, StreamExt};
 
                         let (tx, mut rx_stream) =
-                            iced::futures::channel::mpsc::unbounded::<Message>();
+                            iced::futures::channel::mpsc::unbounded::<(String, i32)>();
 
+                        let rx_thread = rx.clone();
                         std::thread::spawn(move || {
                             loop {
                                 let message = {
-                                    if let Ok(guard) = rx.lock() {
+                                    if let Ok(guard) = rx_thread.lock() {
                                         guard.try_recv().ok()
                                     } else {
                                         None
@@ -166,9 +178,7 @@ pub(crate) fn installation_progress_listener(
                                 };
 
                                 if let Some((status, progress)) = message {
-                                    let _ = tx.unbounded_send(Message::InstallationProgress(
-                                        status, progress,
-                                    ));
+                                    let _ = tx.unbounded_send((status, progress));
                                 }
 
                                 std::thread::sleep(std::time::Duration::from_millis(100));
@@ -187,20 +197,23 @@ pub(crate) fn installation_progress_listener(
 }
 
 pub(crate) async fn run_installation(
-    device: Option<Device>,
-    package: plume_utils::Package,
-    account: Option<plume_store::GsaAccount>,
-    options: plume_utils::SignerOptions,
-    callback: impl Fn(String, i32) + Send + Sync + 'static,
+    package: &plume_utils::Package,
+    device: Option<&Device>,
+    options: &plume_utils::SignerOptions,
+    account: Option<&plume_store::GsaAccount>,
+    tx: &std::sync::mpsc::Sender<(String, i32)>,
+    export_path: Option<std::path::PathBuf>,
 ) -> Result<(), String> {
     use plume_core::{AnisetteConfiguration, CertificateIdentity, developer::DeveloperSession};
     use plume_utils::{Signer, SignerInstallMode, SignerMode};
 
     let package_file: std::path::PathBuf;
-    let mut options = options;
-    let callback = Arc::new(callback);
+    let mut options = options.clone();
+    let send = |msg: String, progress: i32| {
+        let _ = tx.send((msg, progress));
+    };
 
-    callback("Preparing package...".to_string(), 10);
+    send("Preparing package...".to_string(), 10);
 
     match options.mode {
         SignerMode::Pem => {
@@ -208,7 +221,7 @@ pub(crate) async fn run_installation(
                 return Err("GSA account is required for PEM signing".to_string());
             };
 
-            callback("Ensuring account is valid...".to_string(), 20);
+            send("Ensuring account is valid...".to_string(), 20);
 
             let session = DeveloperSession::new(
                 account.adsid().clone(),
@@ -235,7 +248,7 @@ pub(crate) async fn run_installation(
             .await
             .map_err(|e| e.to_string())?;
 
-            callback("Ensuring device is registered...".to_string(), 30);
+            send("Ensuring device is registered...".to_string(), 30);
 
             if let Some(dev) = &device {
                 session
@@ -244,13 +257,13 @@ pub(crate) async fn run_installation(
                     .map_err(|e| e.to_string())?;
             }
 
-            callback("Extracting package...".to_string(), 50);
+            send("Extracting package...".to_string(), 50);
 
             let mut signer = Signer::new(Some(identity), options.clone());
 
             let bundle = package.get_package_bundle().map_err(|e| e.to_string())?;
 
-            callback("Signing package...".to_string(), 70);
+            send("Signing package...".to_string(), 70);
 
             signer
                 .modify_bundle(&bundle, &Some(team_id.clone()))
@@ -269,13 +282,13 @@ pub(crate) async fn run_installation(
             package_file = bundle.bundle_dir().to_path_buf();
         }
         SignerMode::Adhoc => {
-            callback("Extracting package...".to_string(), 50);
+            send("Extracting package...".to_string(), 50);
 
             let mut signer = Signer::new(None, options.clone());
 
             let bundle = package.get_package_bundle().map_err(|e| e.to_string())?;
 
-            callback("Signing package...".to_string(), 70);
+            send("Signing package...".to_string(), 70);
 
             signer
                 .modify_bundle(&bundle, &None)
@@ -290,7 +303,7 @@ pub(crate) async fn run_installation(
             package_file = bundle.bundle_dir().to_path_buf();
         }
         _ => {
-            callback("Extracting package...".to_string(), 50);
+            send("Extracting package...".to_string(), 50);
 
             let bundle = package.get_package_bundle().map_err(|e| e.to_string())?;
 
@@ -302,13 +315,13 @@ pub(crate) async fn run_installation(
         SignerInstallMode::Install => {
             if let Some(dev) = &device {
                 if !dev.is_mac {
-                    callback("Installing...".to_string(), 80);
+                    send("Installing...".to_string(), 80);
 
-                    let callback_clone = Arc::clone(&callback);
+                    let tx_clone = tx.clone();
                     dev.install_app(&package_file, move |progress: i32| {
-                        let callback = Arc::clone(&callback_clone);
+                        let tx = tx_clone.clone();
                         async move {
-                            callback("Installing...".to_string(), 80 + (progress / 5));
+                            let _ = tx.send(("Installing...".to_string(), 80 + (progress / 5)));
                         }
                     })
                     .await
@@ -328,7 +341,7 @@ pub(crate) async fn run_installation(
                         }
                     }
                 } else {
-                    callback("Installing...".to_string(), 90);
+                    send("Installing...".to_string(), 90);
 
                     plume_utils::install_app_mac(&package_file)
                         .await
@@ -339,36 +352,26 @@ pub(crate) async fn run_installation(
             }
         }
         SignerInstallMode::Export => {
-            callback("Exporting...".to_string(), 90);
+            send("Exporting...".to_string(), 90);
 
             let archive_path = package
                 .get_archive_based_on_path(package_file)
                 .map_err(|e| e.to_string())?;
 
-            let file = rfd::AsyncFileDialog::new()
-                .set_title("Save Signed Package As")
-                .set_file_name(
-                    archive_path
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("signed_package.ipa"),
-                )
-                .save_file()
-                .await;
-
-            if let Some(save_path) = file {
-                tokio::fs::copy(&archive_path, &save_path.path())
+            if let Some(save_path) = export_path {
+                tokio::fs::copy(&archive_path, &save_path)
                     .await
                     .map_err(|e| e.to_string())?;
             }
         }
     }
 
-    callback("Finished!".to_string(), 100);
+    send("Finished!".to_string(), 100);
 
     Ok(())
 }
 
+#[allow(dead_code)]
 pub(crate) async fn export_certificate(account: plume_store::GsaAccount) -> Result<(), String> {
     use plume_core::{AnisetteConfiguration, CertificateIdentity, developer::DeveloperSession};
 

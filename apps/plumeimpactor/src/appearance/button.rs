@@ -42,7 +42,9 @@ pub fn p_button(theme: &Theme, status: button::Status) -> button::Style {
             snap: false,
         },
         button::Status::Disabled => button::Style {
-            background: Some(Background::Color(lighten(palette.primary, 0.05))),
+            background: Some(Background::Color(
+                lighten(palette.primary, 0.05).scale_alpha(0.2),
+            )),
             text_color: palette.background.scale_alpha(0.5),
             border: Border {
                 color: Color::TRANSPARENT,

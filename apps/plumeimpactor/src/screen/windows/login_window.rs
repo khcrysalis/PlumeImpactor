@@ -200,7 +200,7 @@ impl LoginWindow {
             text("Password:").size(14),
             password_input,
         ]
-        .spacing(10)
+        .spacing(appearance::THEME_PADDING)
         .align_x(Alignment::Start);
 
         if let Some(error) = &self.login_error {
@@ -213,7 +213,7 @@ impl LoginWindow {
             container(text("")).width(Fill),
             button("Cancel")
                 .on_press(Message::LoginCancel)
-                .style(appearance::p_button),
+                .style(appearance::s_button),
             button(if self.is_logging_in {
                 "Connecting..."
             } else {
@@ -226,12 +226,12 @@ impl LoginWindow {
             })
             .style(appearance::p_button),
         ]
-        .spacing(10);
+        .spacing(appearance::THEME_PADDING);
 
         content = content.push(container(text("")).width(Fill));
         content = content.push(buttons);
 
-        container(content).padding(10).into()
+        container(content).padding(appearance::THEME_PADDING).into()
     }
 
     fn view_two_factor(&self) -> Element<'_, Message> {
@@ -248,8 +248,8 @@ impl LoginWindow {
             text("Enter the verification code sent to your device:").size(14),
             code_input,
         ]
-        .spacing(10)
-        .padding(20)
+        .spacing(appearance::THEME_PADDING)
+        .padding(appearance::THEME_PADDING)
         .align_x(Alignment::Start);
 
         if let Some(error) = &self.two_factor_error {
@@ -261,7 +261,7 @@ impl LoginWindow {
         let buttons = row![
             button("Cancel")
                 .on_press(Message::TwoFactorCancel)
-                .style(appearance::p_button)
+                .style(appearance::s_button)
                 .padding(8),
             button(if self.is_logging_in {
                 "Verifying..."
@@ -275,7 +275,7 @@ impl LoginWindow {
             })
             .style(appearance::p_button),
         ]
-        .spacing(10);
+        .spacing(appearance::THEME_PADDING);
 
         content = content.push(buttons);
         container(content).padding(20).into()

@@ -8,6 +8,7 @@ pub(crate) use picklist::s_pick_list;
 
 pub(crate) const THEME_CORNER_RADIUS: f32 = 4.0;
 pub(crate) const THEME_FONT_SIZE: f32 = 12.0;
+pub(crate) const THEME_PADDING: f32 = 9.0;
 
 pub(crate) fn p_font() -> iced::Font {
     iced::Font {

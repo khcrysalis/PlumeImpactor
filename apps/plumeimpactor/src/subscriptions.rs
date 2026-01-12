@@ -15,6 +15,8 @@ pub enum DeviceMessage {
 pub enum TrayMessage {
     MenuClicked(tray_icon::menu::MenuId),
     IconClicked,
+    #[cfg(target_os = "linux")]
+    GtkTick,
 }
 
 #[derive(Debug, Clone)]
@@ -117,6 +119,12 @@ pub(crate) fn tray_subscription() -> Subscription<TrayMessage> {
                                 _ => {}
                             }
                         }
+
+                        #[cfg(target_os = "linux")]
+                        {
+                            let _ = tx.unbounded_send(TrayMessage::GtkTick);
+                        }
+
                         std::thread::sleep(std::time::Duration::from_millis(32));
                     }
                 });

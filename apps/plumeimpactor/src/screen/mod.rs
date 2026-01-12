@@ -408,6 +408,8 @@ impl Impactor {
         let tray_subscription = subscriptions::tray_subscription().map(|msg| match msg {
             crate::subscriptions::TrayMessage::MenuClicked(id) => Message::TrayMenuClicked(id),
             crate::subscriptions::TrayMessage::IconClicked => Message::TrayIconClicked,
+            #[cfg(target_os = "linux")]
+            crate::subscriptions::TrayMessage::GtkTick => Message::GtkTick,
         });
 
         let hover_subscription = if let ImpactorScreen::Main(_) = self.current_screen {

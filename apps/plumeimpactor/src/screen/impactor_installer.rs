@@ -84,7 +84,7 @@ pub fn view<'a>(package: Option<&'a Package>, options: &'a SignerOptions) -> Ele
             Some(options.install_mode),
             Message::UpdateInstallMode
         )
-        .style(appearance::primary_pick_list)
+        .style(appearance::s_pick_list)
         .placeholder("Select mode"),
         text("Signing:").size(12),
         pick_list(
@@ -92,7 +92,7 @@ pub fn view<'a>(package: Option<&'a Package>, options: &'a SignerOptions) -> Ele
             Some(options.mode),
             Message::UpdateSignerMode
         )
-        .style(appearance::primary_pick_list)
+        .style(appearance::s_pick_list)
         .placeholder("Select signing method"),
     ]
     .spacing(8)

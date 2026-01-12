@@ -1,9 +1,10 @@
 use iced::widget::pick_list;
 use iced::{Background, Border, Color, Theme};
 
-use super::THEME_CORNER_RADIUS;
+use super::{THEME_CORNER_RADIUS, lighten};
 
-pub fn primary_pick_list(theme: &Theme, status: pick_list::Status) -> pick_list::Style {
+/// Secondary pick list style
+pub fn s_pick_list(theme: &Theme, status: pick_list::Status) -> pick_list::Style {
     let palette = theme.palette();
 
     match status {
@@ -40,14 +41,5 @@ pub fn primary_pick_list(theme: &Theme, status: pick_list::Status) -> pick_list:
                 radius: THEME_CORNER_RADIUS.into(),
             },
         },
-    }
-}
-
-fn lighten(color: Color, amount: f32) -> Color {
-    Color {
-        r: (color.r + amount).min(1.0),
-        g: (color.g + amount).min(1.0),
-        b: (color.b + amount).min(1.0),
-        a: color.a,
     }
 }

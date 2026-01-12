@@ -1,11 +1,11 @@
 use tray_icon::{
-    TrayIcon,
+    Icon, TrayIcon, TrayIconBuilder,
     menu::{Menu, MenuId, MenuItem, PredefinedMenuItem},
 };
 
 pub(crate) fn build_tray_icon(menu: &Menu) -> TrayIcon {
     let icon = load_icon();
-    tray_icon::TrayIconBuilder::new()
+    TrayIconBuilder::new()
         .with_menu(Box::new(menu.clone()))
         .with_tooltip(crate::APP_NAME)
         .with_icon(icon)
@@ -13,13 +13,13 @@ pub(crate) fn build_tray_icon(menu: &Menu) -> TrayIcon {
         .expect("Failed to build tray icon")
 }
 
-fn load_icon() -> tray_icon::Icon {
+fn load_icon() -> Icon {
     let bytes = include_bytes!("./tray.png");
     let image = image::load_from_memory(bytes)
         .expect("Failed to load icon bytes")
         .to_rgba8();
     let (width, height) = image.dimensions();
-    tray_icon::Icon::from_rgba(image.into_raw(), width, height).unwrap()
+    Icon::from_rgba(image.into_raw(), width, height).unwrap()
 }
 
 pub(crate) struct ImpactorTray {

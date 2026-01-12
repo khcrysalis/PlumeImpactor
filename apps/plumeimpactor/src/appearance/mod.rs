@@ -1,16 +1,15 @@
-use iced::Theme;
-use iced::color;
+use iced::{Color, Theme, color};
 
-pub mod button;
-pub mod picklist;
+mod button;
+mod picklist;
 
-pub use button::p_button;
-pub use picklist::primary_pick_list;
+pub(crate) use button::{p_button, s_button};
+pub(crate) use picklist::s_pick_list;
 
-pub const THEME_CORNER_RADIUS: f32 = 4.0;
-pub const THEME_FONT_SIZE: f32 = 12.0;
+pub(crate) const THEME_CORNER_RADIUS: f32 = 4.0;
+pub(crate) const THEME_FONT_SIZE: f32 = 12.0;
 
-pub fn p_font() -> iced::Font {
+pub(crate) fn p_font() -> iced::Font {
     iced::Font {
         family: iced::font::Family::Monospace,
         weight: iced::font::Weight::Normal,
@@ -20,12 +19,12 @@ pub fn p_font() -> iced::Font {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PlumeTheme {
+pub(crate) enum PlumeTheme {
     PlumeDark,
 }
 
 impl PlumeTheme {
-    pub fn to_iced_theme(self) -> Theme {
+    pub(crate) fn to_iced_theme(self) -> Theme {
         Self::plume_dark()
     }
 
@@ -44,14 +43,26 @@ impl PlumeTheme {
     }
 }
 
-impl std::fmt::Display for PlumeTheme {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Plume Dark")
-    }
-}
-
 impl Default for PlumeTheme {
     fn default() -> Self {
         Self::PlumeDark
+    }
+}
+
+pub(crate) fn lighten(color: Color, amount: f32) -> Color {
+    Color {
+        r: (color.r + amount).min(1.0),
+        g: (color.g + amount).min(1.0),
+        b: (color.b + amount).min(1.0),
+        a: color.a,
+    }
+}
+
+pub(crate) fn darken(color: Color, amount: f32) -> Color {
+    Color {
+        r: (color.r - amount).max(0.0),
+        g: (color.g - amount).max(0.0),
+        b: (color.b - amount).max(0.0),
+        a: color.a,
     }
 }

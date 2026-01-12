@@ -8,8 +8,8 @@ mod subscriptions;
 mod tray;
 
 use iced::widget::{button, column, container, pick_list, row, text};
+use iced::window;
 use iced::{Center, Element, Fill, Subscription, Task};
-use iced::{Length, window};
 use plume_store::AccountStore;
 use plume_utils::{Device, Package, SignerOptions};
 
@@ -575,11 +575,11 @@ impl Impactor {
                         self.selected_device.as_ref().map(|d| d.to_string()),
                         Message::ComboBoxSelected
                     )
-                    .style(appearance::primary_pick_list)
+                    .style(appearance::s_pick_list)
                     .placeholder(selected_text.as_str())
                     .width(250),
                     button(text("≡").align_x(Center))
-                        .style(appearance::p_button)
+                        .style(appearance::s_button)
                         .on_press(Message::NavigateToScreen(ImpactorScreen::Settings))
                 ]
                 .spacing(10),
@@ -593,7 +593,7 @@ impl Impactor {
                 container(text("")).width(Fill),
                 button(text("Back").align_x(Center))
                     .on_press(Message::PreviousScreen)
-                    .style(appearance::p_button)
+                    .style(appearance::s_button)
             ])
             .padding(10)
             .width(Fill);
@@ -607,18 +607,10 @@ impl Impactor {
             ImpactorScreen::Main => {
                 let bottom_bar = container(
                     row![
-                        button(
-                            row![
-                                container(text("")).width(Fill),
-                                defaults::file_transfer().width(Length::Fixed(12.0)),
-                                text("Import .ipa / .tipa"),
-                                container(text("")).width(Fill)
-                            ]
-                            .spacing(8)
-                        )
-                        .on_press(Message::OpenFileDialog)
-                        .style(appearance::p_button)
-                        .width(Fill),
+                        button(text("Import .ipa / .tipa").align_x(Center))
+                            .on_press(Message::OpenFileDialog)
+                            .style(appearance::s_button)
+                            .width(Fill),
                     ]
                     .spacing(10),
                 )
@@ -640,7 +632,7 @@ impl Impactor {
                     row![
                         button(text("Back").align_x(Center))
                             .on_press(Message::PreviousScreen)
-                            .style(appearance::p_button)
+                            .style(appearance::s_button)
                             .width(Fill),
                         button(text(button_label).align_x(Center))
                             .on_press_maybe(if button_enabled {
@@ -648,6 +640,7 @@ impl Impactor {
                             } else {
                                 None
                             })
+                            .style(appearance::p_button)
                             .width(Fill),
                     ]
                     .spacing(10),
@@ -668,7 +661,7 @@ impl Impactor {
                                     None
                                 }
                             )
-                            .style(appearance::p_button)
+                            .style(appearance::s_button)
                             .width(Fill),
                     ]
                     .spacing(10),

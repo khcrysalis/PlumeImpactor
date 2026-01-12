@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod appearance;
 mod defaults;
 mod screen;
 mod signer_options;
@@ -7,8 +8,8 @@ mod subscriptions;
 mod tray;
 
 use iced::widget::{button, column, container, pick_list, row, text};
-use iced::{Element, Fill, Subscription, Task};
-use iced::{Theme, window};
+use iced::{Center, Element, Fill, Subscription, Task};
+use iced::{Length, window};
 use plume_store::AccountStore;
 use plume_utils::{Device, Package, SignerOptions};
 
@@ -29,7 +30,7 @@ fn main() -> iced::Result {
     iced::daemon(Impactor::new, Impactor::update, Impactor::view)
         .subscription(Impactor::subscription)
         .title(APP_NAME_VERSIONED)
-        .theme(Theme::GruvboxDark)
+        .theme(appearance::PlumeTheme::default().to_iced_theme())
         .settings(defaults::default_settings())
         .run()
 }
@@ -574,9 +575,12 @@ impl Impactor {
                         self.selected_device.as_ref().map(|d| d.to_string()),
                         Message::ComboBoxSelected
                     )
+                    .style(appearance::primary_pick_list)
                     .placeholder(selected_text.as_str())
                     .width(250),
-                    button("⚙").on_press(Message::NavigateToScreen(ImpactorScreen::Settings))
+                    button(text("≡").align_x(Center))
+                        .style(appearance::p_button)
+                        .on_press(Message::NavigateToScreen(ImpactorScreen::Settings))
                 ]
                 .spacing(10),
             )
@@ -587,7 +591,9 @@ impl Impactor {
         } else {
             let settings_top = container(row![
                 container(text("")).width(Fill),
-                button("Back").on_press(Message::PreviousScreen)
+                button(text("Back").align_x(Center))
+                    .on_press(Message::PreviousScreen)
+                    .style(appearance::p_button)
             ])
             .padding(10)
             .width(Fill);
@@ -601,9 +607,18 @@ impl Impactor {
             ImpactorScreen::Main => {
                 let bottom_bar = container(
                     row![
-                        button("Import .ipa / .tipa")
-                            .on_press(Message::OpenFileDialog)
-                            .width(Fill),
+                        button(
+                            row![
+                                container(text("")).width(Fill),
+                                defaults::file_transfer().width(Length::Fixed(12.0)),
+                                text("Import .ipa / .tipa"),
+                                container(text("")).width(Fill)
+                            ]
+                            .spacing(8)
+                        )
+                        .on_press(Message::OpenFileDialog)
+                        .style(appearance::p_button)
+                        .width(Fill),
                     ]
                     .spacing(10),
                 )
@@ -623,8 +638,11 @@ impl Impactor {
 
                 let bottom_bar = container(
                     row![
-                        button("Back").on_press(Message::PreviousScreen).width(Fill),
-                        button(button_label)
+                        button(text("Back").align_x(Center))
+                            .on_press(Message::PreviousScreen)
+                            .style(appearance::p_button)
+                            .width(Fill),
+                        button(text(button_label).align_x(Center))
                             .on_press_maybe(if button_enabled {
                                 Some(Message::StartInstallation)
                             } else {
@@ -642,7 +660,7 @@ impl Impactor {
             ImpactorScreen::Progress => {
                 let bottom_bar = container(
                     row![
-                        button("Back")
+                        button(text("Back").align_x(Center))
                             .on_press_maybe(
                                 if self.installer.progress == -1 || self.installer.progress >= 100 {
                                     Some(Message::PreviousScreen)
@@ -650,6 +668,7 @@ impl Impactor {
                                     None
                                 }
                             )
+                            .style(appearance::p_button)
                             .width(Fill),
                     ]
                     .spacing(10),

@@ -1,9 +1,9 @@
 use iced::widget::{button, column, container, row, text};
-use iced::{Alignment, Element, Fill};
+use iced::{Alignment, Center, Element, Fill};
 use iced_aw::SelectionList;
 use plume_store::AccountStore;
 
-use crate::Message;
+use crate::{Message, appearance};
 
 pub fn view(account_store: Option<&AccountStore>) -> Element<'static, Message> {
     let mut content = column![].spacing(10).padding(10);
@@ -48,16 +48,11 @@ pub fn view(account_store: Option<&AccountStore>) -> Element<'static, Message> {
             let selection_list = SelectionList::new_with(
                 account_labels,
                 |index, _label| Message::SelectAccount(index),
-                12.0,
+                appearance::THEME_FONT_SIZE.into(),
                 5.0,
                 iced_aw::style::selection_list::primary,
                 selected_index,
-                iced::Font {
-                    family: iced::font::Family::Monospace,
-                    weight: iced::font::Weight::Normal,
-                    stretch: iced::font::Stretch::Normal,
-                    style: iced::font::Style::Normal,
-                },
+                appearance::p_font(),
             );
 
             content = content.push(container(selection_list).height(Fill).style(
@@ -65,7 +60,7 @@ pub fn view(account_store: Option<&AccountStore>) -> Element<'static, Message> {
                     border: iced::Border {
                         width: 1.0,
                         color: theme.palette().background.scale_alpha(0.5),
-                        radius: 4.0.into(),
+                        radius: appearance::THEME_CORNER_RADIUS.into(),
                     },
                     ..Default::default()
                 },
@@ -74,14 +69,23 @@ pub fn view(account_store: Option<&AccountStore>) -> Element<'static, Message> {
 
         let mut buttons = row![].spacing(10);
 
-        buttons = buttons.push(button(text("Add Account")).on_press(Message::ShowLogin));
+        buttons = buttons.push(
+            button(text("Add Account").align_x(Center))
+                .on_press(Message::ShowLogin)
+                .style(appearance::p_button),
+        );
 
         if selected_index.is_some() {
             buttons = buttons.push(
-                button(text("Remove Selected"))
-                    .on_press_maybe(selected_index.map(Message::RemoveAccount)),
+                button(text("Remove Selected").align_x(Center))
+                    .on_press_maybe(selected_index.map(Message::RemoveAccount))
+                    .style(appearance::p_button),
             );
-            buttons = buttons.push(button(text("Export P12")).on_press(Message::ExportP12));
+            buttons = buttons.push(
+                button(text("Export P12").align_x(Center))
+                    .on_press(Message::ExportP12)
+                    .style(appearance::p_button),
+            );
         }
 
         content = content.push(buttons.align_y(Alignment::Center));

@@ -4,7 +4,7 @@ use iced::widget::{
 use iced::{Alignment, Center, Element, Fill, Length};
 use plume_utils::{Package, PlistInfoTrait, SignerInstallMode, SignerMode, SignerOptions};
 
-use crate::Message;
+use crate::{Message, appearance};
 
 pub fn view<'a>(package: Option<&'a Package>, options: &'a SignerOptions) -> Element<'a, Message> {
     let Some(pkg) = package else {
@@ -42,8 +42,12 @@ pub fn view<'a>(package: Option<&'a Package>, options: &'a SignerOptions) -> Ele
         text("Tweaks:").size(12),
         view_tweaks(options),
         row![
-            button("Add Tweak").on_press(Message::AddTweak),
-            button("Add Bundle").on_press(Message::AddBundle),
+            button(text("Add Tweak").align_x(Center))
+                .on_press(Message::AddTweak)
+                .style(appearance::p_button),
+            button(text("Add Bundle").align_x(Center))
+                .on_press(Message::AddBundle)
+                .style(appearance::p_button),
         ]
         .spacing(8),
     ]
@@ -80,6 +84,7 @@ pub fn view<'a>(package: Option<&'a Package>, options: &'a SignerOptions) -> Ele
             Some(options.install_mode),
             Message::UpdateInstallMode
         )
+        .style(appearance::primary_pick_list)
         .placeholder("Select mode"),
         text("Signing:").size(12),
         pick_list(
@@ -87,6 +92,7 @@ pub fn view<'a>(package: Option<&'a Package>, options: &'a SignerOptions) -> Ele
             Some(options.mode),
             Message::UpdateSignerMode
         )
+        .style(appearance::primary_pick_list)
         .placeholder("Select signing method"),
     ]
     .spacing(8)
@@ -113,7 +119,10 @@ fn view_tweaks<'a>(options: &'a SignerOptions) -> Element<'a, Message> {
                 text(tweak.file_name().and_then(|n| n.to_str()).unwrap_or("???"))
                     .size(12)
                     .width(Fill),
-                button("Remove").on_press(Message::RemoveTweak(i))
+                button(text("Remove").align_x(Center))
+                    .on_press(Message::RemoveTweak(i))
+                    .style(appearance::p_button)
+                    .padding(6)
             ]
             .spacing(8)
             .align_y(Alignment::Center);

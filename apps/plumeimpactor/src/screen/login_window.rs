@@ -5,6 +5,8 @@ use plume_core::{AnisetteConfiguration, auth::Account};
 use plume_store::{AccountStore, GsaAccount};
 use std::sync::mpsc as std_mpsc;
 
+use crate::appearance;
+
 #[derive(Debug, Clone)]
 pub enum Message {
     EmailChanged(String),
@@ -209,7 +211,9 @@ impl LoginWindow {
 
         let buttons = row![
             container(text("")).width(Fill),
-            button("Cancel").on_press(Message::LoginCancel).padding(8),
+            button("Cancel")
+                .on_press(Message::LoginCancel)
+                .style(appearance::p_button),
             button(if self.is_logging_in {
                 "Connecting..."
             } else {
@@ -220,8 +224,7 @@ impl LoginWindow {
             } else {
                 Some(Message::LoginSubmit)
             })
-            .padding(8)
-            .style(button::primary),
+            .style(appearance::p_button),
         ]
         .spacing(10);
 
@@ -258,19 +261,19 @@ impl LoginWindow {
         let buttons = row![
             button("Cancel")
                 .on_press(Message::TwoFactorCancel)
+                .style(appearance::p_button)
                 .padding(8),
             button(if self.is_logging_in {
                 "Verifying..."
             } else {
                 "Verify"
             })
-                .on_press_maybe(if self.is_logging_in {
-                    None
-                } else {
-                    Some(Message::TwoFactorSubmit)
-                })
-                .padding(8)
-                .style(button::primary),
+            .on_press_maybe(if self.is_logging_in {
+                None
+            } else {
+                Some(Message::TwoFactorSubmit)
+            })
+            .style(appearance::p_button),
         ]
         .spacing(10);
 

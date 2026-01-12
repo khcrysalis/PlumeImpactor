@@ -215,7 +215,7 @@ impl LoginWindow {
                 .on_press(Message::LoginCancel)
                 .style(appearance::s_button),
             button(if self.is_logging_in {
-                "Connecting..."
+                "Logging In..."
             } else {
                 "Next"
             })

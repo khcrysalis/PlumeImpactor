@@ -204,14 +204,11 @@ impl PackageScreen {
         };
 
         let content = scrollable(
-            column![
-                row![
-                    self.view_package_info_column(pkg),
-                    self.view_options_column()
-                ]
-                .spacing(20)
+            row![
+                self.view_package_info_column(pkg),
+                self.view_options_column()
             ]
-            .spacing(16),
+            .spacing(appearance::THEME_PADDING),
         );
 
         column![
@@ -227,7 +224,7 @@ impl PackageScreen {
             text("No package selected").size(32),
             text("Go back and select a file").size(16),
         ]
-        .spacing(20)
+        .spacing(appearance::THEME_PADDING)
         .align_x(Center)
         .into()
     }

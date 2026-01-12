@@ -104,7 +104,7 @@ impl ProgressScreen {
             progress_bar,
             container(text("")).height(Fill),
         ]
-        .spacing(16);
+        .spacing(appearance::THEME_PADDING);
 
         column![
             container(screen_content).width(Fill).height(Fill),

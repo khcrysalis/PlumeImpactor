@@ -25,8 +25,6 @@ pub enum Message {
     RemoveTweak(usize),
     Back,
     RequestInstallation,
-    StartInstallation(Option<std::path::PathBuf>),
-    ExportPathSelected(Option<std::path::PathBuf>),
 }
 
 #[derive(Debug, Clone)]
@@ -164,37 +162,7 @@ impl PackageScreen {
                 }
                 Task::none()
             }
-            Message::Back => Task::none(),
-            Message::RequestInstallation => {
-                if self.options.install_mode == SignerInstallMode::Export {
-                    let pkg_name = self
-                        .selected_package
-                        .as_ref()
-                        .and_then(|p| p.get_name())
-                        .unwrap_or_else(|| "signed_package".to_string());
-                    let pkg_file = self
-                        .selected_package
-                        .as_ref()
-                        .map(|p| p.package_file().clone());
-
-                    let extension = pkg_file
-                        .as_ref()
-                        .and_then(|f| f.extension())
-                        .and_then(|e| e.to_str())
-                        .unwrap_or("ipa");
-
-                    let path = rfd::FileDialog::new()
-                        .set_title("Save Signed Package As")
-                        .set_file_name(&format!("{}.{}", pkg_name, extension))
-                        .save_file();
-
-                    Task::done(Message::ExportPathSelected(path))
-                } else {
-                    Task::done(Message::StartInstallation(None))
-                }
-            }
-            Message::ExportPathSelected(path) => Task::done(Message::StartInstallation(path)),
-            Message::StartInstallation(_) => Task::none(),
+            _ => Task::none(),
         }
     }
 

@@ -16,7 +16,7 @@ use plume_utils::{Device, SignerOptions};
 use crate::subscriptions;
 use crate::tray::ImpactorTray;
 use crate::{appearance, defaults};
-use windows::login_window;
+use windows::{login_window, team_selection_window};
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -45,6 +45,10 @@ pub enum Message {
     // Login window
     LoginWindowMessage(window::Id, login_window::Message),
 
+    // Team selection window
+    TeamSelectionWindowMessage(window::Id, team_selection_window::Message),
+    TeamSelectionRequested(Vec<String>),
+
     // Screen-specific messages
     MainScreen(general::Message),
     SettingsScreen(settings::Message),
@@ -53,7 +57,6 @@ pub enum Message {
 
     // Installation
     StartInstallation,
-    StartInstallationWithExportPath(Option<std::path::PathBuf>),
 }
 
 pub struct Impactor {
@@ -65,6 +68,12 @@ pub struct Impactor {
     main_window: Option<window::Id>,
     account_store: Option<AccountStore>,
     login_windows: std::collections::HashMap<window::Id, login_window::LoginWindow>,
+    team_selection_windows:
+        std::collections::HashMap<window::Id, team_selection_window::TeamSelectionWindow>,
+    team_selection_listener:
+        Option<std::sync::Arc<std::sync::Mutex<std::sync::mpsc::Receiver<Vec<String>>>>>,
+    team_response_sender: Option<std::sync::mpsc::Sender<Result<usize, String>>>,
+    pending_installation: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -97,6 +106,10 @@ impl Impactor {
                 main_window: Some(id),
                 account_store: Some(Self::init_account_store_sync()),
                 login_windows: std::collections::HashMap::new(),
+                team_selection_windows: std::collections::HashMap::new(),
+                team_selection_listener: None,
+                team_response_sender: None,
+                pending_installation: false,
             },
             open_task.discard(),
         )
@@ -241,12 +254,66 @@ impl Impactor {
                                 settings::SettingsScreen::new(account_store),
                             );
                         }
+
+                        // Check if there's a pending installation to resume
+                        if self.pending_installation {
+                            if matches!(msg, login_window::Message::LoginSuccess(_)) {
+                                self.pending_installation = false;
+                                return Task::batch(vec![
+                                    window::close(id),
+                                    Task::done(Message::InstallerScreen(
+                                        package::Message::RequestInstallation,
+                                    )),
+                                ]);
+                            }
+                        }
+
+                        return window::close(id);
                     }
 
                     task.map(move |msg| Message::LoginWindowMessage(id, msg))
                 } else {
                     Task::none()
                 }
+            }
+            Message::TeamSelectionWindowMessage(id, msg) => {
+                if let Some(team_window) = self.team_selection_windows.get_mut(&id) {
+                    let task = team_window.update(msg.clone());
+
+                    match msg {
+                        team_selection_window::Message::Confirm => {
+                            if let Some(selected_index) = team_window.selected_index {
+                                self.team_selection_windows.remove(&id);
+
+                                if let Some(ref sender) = self.team_response_sender {
+                                    let _ = sender.send(Ok(selected_index));
+                                }
+
+                                return window::close(id);
+                            }
+                            task.map(move |msg| Message::TeamSelectionWindowMessage(id, msg))
+                        }
+                        team_selection_window::Message::Cancel => {
+                            self.team_selection_windows.remove(&id);
+
+                            if let Some(ref sender) = self.team_response_sender {
+                                let _ = sender.send(Err("Team selection cancelled".to_string()));
+                            }
+
+                            window::close(id)
+                        }
+                        _ => task.map(move |msg| Message::TeamSelectionWindowMessage(id, msg)),
+                    }
+                } else {
+                    Task::none()
+                }
+            }
+            Message::TeamSelectionRequested(team_names) => {
+                let (window_id, open_window) =
+                    window::open(team_selection_window::TeamSelectionWindow::settings());
+                let team_window = team_selection_window::TeamSelectionWindow::new(team_names);
+                self.team_selection_windows.insert(window_id, team_window);
+                open_window.discard()
             }
             Message::MainScreen(msg) => {
                 if let ImpactorScreen::Main(ref mut screen) = self.current_screen {
@@ -287,23 +354,26 @@ impl Impactor {
                 if let ImpactorScreen::Installer(ref mut screen) = self.current_screen {
                     match msg {
                         package::Message::Back => Task::done(Message::PreviousScreen),
-                        package::Message::StartInstallation(export_path) => {
-                            if screen.options.mode == plume_utils::SignerMode::Pem {
-                                if self
-                                    .account_store
-                                    .as_ref()
-                                    .and_then(|s| s.selected_account())
-                                    .is_none()
-                                {
-                                    return Task::none();
-                                }
-                            }
-
+                        package::Message::RequestInstallation => {
                             if screen.selected_package.is_none() {
                                 return Task::none();
                             }
 
-                            self.start_installation_task(export_path)
+                            // Check if PEM mode and no account - need to login first
+                            use plume_utils::SignerMode;
+                            if matches!(screen.options.mode, SignerMode::Pem) {
+                                if self.account_store.as_ref().and_then(|s| s.selected_account()).is_none() {
+                                    // Store that we have a pending installation
+                                    self.pending_installation = true;
+                                    
+                                    let (login_window, task) = login_window::LoginWindow::new();
+                                    let id = login_window.window_id().unwrap();
+                                    self.login_windows.insert(id, login_window);
+                                    return task.map(move |msg| Message::LoginWindowMessage(id, msg));
+                                }
+                            }
+
+                            self.start_installation_task()
                         }
                         _ => screen.update(msg).map(Message::InstallerScreen),
                     }
@@ -322,7 +392,6 @@ impl Impactor {
                 }
             }
             Message::StartInstallation => Task::none(),
-            Message::StartInstallationWithExportPath(_) => Task::none(),
         }
     }
 
@@ -371,6 +440,13 @@ impl Impactor {
                 Subscription::none()
             };
 
+        let team_selection_subscription = if let Some(ref listener) = self.team_selection_listener {
+            subscriptions::team_selection_listener(listener.clone())
+                .map(Message::TeamSelectionRequested)
+        } else {
+            Subscription::none()
+        };
+
         let close_subscription = iced::event::listen_with(|event, _status, _id| {
             if let iced::Event::Window(window::Event::CloseRequested) = event {
                 return Some(Message::HideWindow);
@@ -383,6 +459,7 @@ impl Impactor {
             tray_subscription,
             hover_subscription,
             progress_subscription,
+            team_selection_subscription,
             close_subscription,
         ])
     }
@@ -394,6 +471,12 @@ impl Impactor {
             return login_window
                 .view()
                 .map(move |msg| Message::LoginWindowMessage(window_id, msg));
+        }
+
+        if let Some(team_window) = self.team_selection_windows.get(&window_id) {
+            return team_window
+                .view()
+                .map(move |msg| Message::TeamSelectionWindowMessage(window_id, msg));
         }
 
         let has_device = self.selected_device.is_some();
@@ -473,10 +556,7 @@ impl Impactor {
         }
     }
 
-    fn start_installation_task(
-        &mut self,
-        export_path: Option<std::path::PathBuf>,
-    ) -> Task<Message> {
+    fn start_installation_task(&mut self) -> Task<Message> {
         if let ImpactorScreen::Installer(installer) = &self.current_screen {
             let Some(package) = installer.selected_package.clone() else {
                 return Task::none();
@@ -492,10 +572,21 @@ impl Impactor {
             let (tx, rx) = std::sync::mpsc::channel();
             let progress_rx = std::sync::Arc::new(std::sync::Mutex::new(rx));
 
+            // Create channels for team selection
+            let (team_tx, team_rx) = std::sync::mpsc::channel::<Vec<String>>();
+            let (team_response_tx, team_response_rx) =
+                std::sync::mpsc::channel::<Result<usize, String>>();
+
+            // Store the channels for listening and responding
+            self.team_selection_listener =
+                Some(std::sync::Arc::new(std::sync::Mutex::new(team_rx)));
+            self.team_response_sender = Some(team_response_tx);
+
             let mut progress_screen = progress::ProgressScreen::new();
             progress_screen.start_installation(progress_rx.clone());
             self.current_screen = ImpactorScreen::Progress(progress_screen);
 
+            // Spawn installation thread
             std::thread::spawn(move || {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 let tx_error = tx.clone();
@@ -506,7 +597,8 @@ impl Impactor {
                         &options,
                         account.as_ref(),
                         &tx,
-                        export_path,
+                        Some(team_tx),
+                        Some(team_response_rx),
                     )
                     .await
                     {

@@ -196,13 +196,54 @@ pub(crate) fn installation_progress_listener(
     }
 }
 
+pub(crate) fn team_selection_listener(
+    team_rx: Arc<std::sync::Mutex<std::sync::mpsc::Receiver<Vec<String>>>>,
+) -> Subscription<Vec<String>> {
+    struct State {
+        rx: Arc<std::sync::Mutex<std::sync::mpsc::Receiver<Vec<String>>>>,
+    }
+
+    impl std::hash::Hash for State {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            Arc::as_ptr(&self.rx).hash(state);
+        }
+    }
+
+    let state = State { rx: team_rx };
+    Subscription::run_with(state, |state| {
+        let rx = state.rx.clone();
+        iced::stream::channel(
+            10,
+            move |mut output: iced::futures::channel::mpsc::Sender<Vec<String>>| async move {
+                use iced::futures::{SinkExt, StreamExt};
+
+                let (tx, mut rx_stream) = iced::futures::channel::mpsc::unbounded::<Vec<String>>();
+
+                let rx_thread = rx.clone();
+                std::thread::spawn(move || {
+                    if let Ok(guard) = rx_thread.lock() {
+                        if let Ok(teams) = guard.recv() {
+                            let _ = tx.unbounded_send(teams);
+                        }
+                    }
+                });
+
+                while let Some(teams) = rx_stream.next().await {
+                    let _ = output.send(teams).await;
+                }
+            },
+        )
+    })
+}
+
 pub(crate) async fn run_installation(
     package: &plume_utils::Package,
     device: Option<&Device>,
     options: &plume_utils::SignerOptions,
     account: Option<&plume_store::GsaAccount>,
     tx: &std::sync::mpsc::Sender<(String, i32)>,
-    export_path: Option<std::path::PathBuf>,
+    team_selection_tx: Option<std::sync::mpsc::Sender<Vec<String>>>,
+    team_selection_rx: Option<std::sync::mpsc::Receiver<Result<usize, String>>>,
 ) -> Result<(), String> {
     use plume_core::{AnisetteConfiguration, CertificateIdentity, developer::DeveloperSession};
     use plume_utils::{Signer, SignerInstallMode, SignerMode};
@@ -232,12 +273,35 @@ pub(crate) async fn run_installation(
             .await
             .map_err(|e| e.to_string())?;
 
-            let team_id = &session
-                .qh_list_teams()
-                .await
-                .map_err(|e| e.to_string())?
-                .teams[0]
-                .team_id;
+            let teams_response = session.qh_list_teams().await.map_err(|e| e.to_string())?;
+
+            if teams_response.teams.is_empty() {
+                return Err("No teams available for this account".to_string());
+            }
+
+            let team_id = if teams_response.teams.len() == 1 {
+                &teams_response.teams[0].team_id
+            } else {
+                let team_names: Vec<String> = teams_response
+                    .teams
+                    .iter()
+                    .map(|t| format!("{} ({})", t.name, t.team_id))
+                    .collect();
+
+                if let (Some(tx), Some(rx)) = (team_selection_tx, team_selection_rx) {
+                    tx.send(team_names)
+                        .map_err(|_| "Failed to send team selection request".to_string())?;
+
+                    let selected_index = rx
+                        .recv()
+                        .map_err(|_| "Team selection channel closed".to_string())?
+                        .map_err(|e| format!("Team selection error: {}", e))?;
+
+                    &teams_response.teams[selected_index].team_id
+                } else {
+                    &teams_response.teams[0].team_id
+                }
+            };
 
             let identity = CertificateIdentity::new_with_session(
                 &session,
@@ -358,8 +422,19 @@ pub(crate) async fn run_installation(
                 .get_archive_based_on_path(package_file)
                 .map_err(|e| e.to_string())?;
 
-            if let Some(save_path) = export_path {
-                tokio::fs::copy(&archive_path, &save_path)
+            let file = rfd::AsyncFileDialog::new()
+                .set_title("Save Package As")
+                .set_file_name(
+                    archive_path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("package.ipa"),
+                )
+                .save_file()
+                .await;
+
+            if let Some(save_path) = file {
+                tokio::fs::copy(&archive_path, &save_path.path())
                     .await
                     .map_err(|e| e.to_string())?;
             }
@@ -383,12 +458,19 @@ pub(crate) async fn export_certificate(account: plume_store::GsaAccount) -> Resu
     .await
     .map_err(|e| e.to_string())?;
 
-    let team_id = &session
-        .qh_list_teams()
-        .await
-        .map_err(|e| e.to_string())?
-        .teams[0]
-        .team_id;
+    let teams_response = session.qh_list_teams().await.map_err(|e| e.to_string())?;
+
+    if teams_response.teams.is_empty() {
+        return Err("No teams available for this account".to_string());
+    }
+
+    let team_id = if teams_response.teams.len() == 1 {
+        &teams_response.teams[0].team_id
+    } else {
+        // Multiple teams - for export_certificate, just use the first one for now
+        // TODO: Add team selection support for export_certificate
+        &teams_response.teams[0].team_id
+    };
 
     let identity = CertificateIdentity::new_with_session(
         &session,

@@ -1,8 +1,12 @@
-use iced::widget::{button, column, container, row, text};
-use iced::{Center, Color, Element, Fill, Task};
+use iced::widget::{button, column, container, image, row, text};
+use iced::{Center, Element, Fill, Task};
 use plume_utils::Package;
 
 use crate::appearance;
+use std::sync::OnceLock;
+
+const INSTALL_IMAGE: &[u8] = include_bytes!("./general.png");
+const INSTALL_IMAGE_HEIGHT: f32 = 100.0;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -57,14 +61,11 @@ impl GeneralScreen {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        let screen_content = column![
-            text("Drag & drop IPA / TIPA file")
-                .size(16)
-                .color(Color::from_rgba(0.5, 0.5, 0.5, 0.7))
-        ]
-        .padding(appearance::THEME_PADDING)
-        .spacing(appearance::THEME_PADDING)
-        .align_x(Center);
+        static INSTALL_IMAGE_HANDLE: OnceLock<image::Handle> = OnceLock::new();
+        let image_handle =
+            INSTALL_IMAGE_HANDLE.get_or_init(|| image::Handle::from_bytes(INSTALL_IMAGE));
+
+        let screen_content = image(image_handle.clone()).height(INSTALL_IMAGE_HEIGHT);
 
         column![
             container(screen_content).center(Fill).height(Fill),

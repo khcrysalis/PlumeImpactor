@@ -6,7 +6,7 @@ use crate::appearance;
 use std::sync::OnceLock;
 
 const INSTALL_IMAGE: &[u8] = include_bytes!("./general.png");
-const INSTALL_IMAGE_HEIGHT: f32 = 100.0;
+const INSTALL_IMAGE_HEIGHT: f32 = 130.0;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -70,7 +70,14 @@ impl GeneralScreen {
         let image_handle =
             INSTALL_IMAGE_HANDLE.get_or_init(|| image::Handle::from_bytes(INSTALL_IMAGE));
 
-        let screen_content = image(image_handle.clone()).height(INSTALL_IMAGE_HEIGHT);
+        let screen_content = column![
+            image(image_handle.clone()).height(INSTALL_IMAGE_HEIGHT),
+            text("Drag & drop an IPA here")
+                .size(appearance::THEME_FONT_SIZE + 7.0)
+                .color(Color::from_rgba(1.0, 1.0, 1.0, 0.3))
+        ]
+        .spacing(10)
+        .align_x(Center);
 
         let footer_links =
             button(text("Give me a ⭐ star :3").color(Color::from_rgb(1.0, 0.75, 0.8)))

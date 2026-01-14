@@ -1,7 +1,7 @@
 use iced::widget::{
     button, checkbox, column, container, pick_list, row, scrollable, text, text_input,
 };
-use iced::{Alignment, Center, Element, Fill, Length, Task};
+use iced::{Alignment, Center, Element, Fill, Task};
 use plume_utils::{Package, PlistInfoTrait, SignerInstallMode, SignerMode, SignerOptions};
 
 use crate::appearance;
@@ -229,10 +229,10 @@ impl PackageScreen {
             row![
                 button(text("Add Tweak").align_x(Center))
                     .on_press(Message::AddTweak)
-                    .style(appearance::p_button),
+                    .style(appearance::s_button),
                 button(text("Add Bundle").align_x(Center))
                     .on_press(Message::AddBundle)
-                    .style(appearance::p_button),
+                    .style(appearance::s_button),
             ]
             .spacing(8),
         ]
@@ -328,7 +328,7 @@ impl PackageScreen {
                         .width(Fill),
                     button(text("Remove").align_x(Center))
                         .on_press(Message::RemoveTweak(i))
-                        .style(appearance::p_button)
+                        .style(appearance::s_button)
                         .padding(6)
                 ]
                 .spacing(8)
@@ -337,7 +337,7 @@ impl PackageScreen {
                 tweak_list = tweak_list.push(tweak_row);
             }
 
-            scrollable(tweak_list).height(Length::Fixed(100.0)).into()
+            scrollable(tweak_list).into()
         } else {
             text("No tweaks added").size(12).into()
         }

@@ -71,6 +71,7 @@ impl GeneralScreen {
             INSTALL_IMAGE_HANDLE.get_or_init(|| image::Handle::from_bytes(INSTALL_IMAGE));
 
         let screen_content = column![
+            container(text("")).height(appearance::THEME_PADDING * 2.0),
             image(image_handle.clone()).height(INSTALL_IMAGE_HEIGHT),
             text("Drag & drop an IPA here")
                 .size(appearance::THEME_FONT_SIZE + 7.0)

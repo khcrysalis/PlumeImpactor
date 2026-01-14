@@ -117,9 +117,11 @@ jobs:
           - target: aarch64-apple-darwin
             arch: arm
             suffix: arm64
+            osxcross_prefix: arm64-apple-darwin21.4
           - target: x86_64-apple-darwin
             arch: intel
             suffix: x86_64
+            osxcross_prefix: x86_64-apple-darwin21.4
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -132,6 +134,12 @@ jobs:
 
       - name: Build binaries (${{ matrix.arch }})
         run: |
+          target_env=$(echo "${{ matrix.target }}" | tr '-' '_')
+          prefix="${{ matrix.osxcross_prefix }}"
+          export "CC_${target_env}=${prefix}-clang"
+          export "CXX_${target_env}=${prefix}-clang++"
+          export "AR_${target_env}=${prefix}-ar"
+          export "RANLIB_${target_env}=${prefix}-ranlib"
           cargo build --bins --workspace --release --target ${{ matrix.target }}
           mkdir -p dist
           cp target/${{ matrix.target }}/release/plumeimpactor dist/plumeimpactor-macos-${{ matrix.suffix }}

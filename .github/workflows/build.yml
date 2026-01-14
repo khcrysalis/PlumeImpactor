@@ -126,7 +126,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - name: Setup osxcross
-        uses: Timmmm/setup-osxcross@v1
+        uses: Timmmm/setup-osxcross@v3
         with:
           osx-version: "12.3"
 

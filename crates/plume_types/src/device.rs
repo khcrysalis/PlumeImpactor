@@ -4,8 +4,10 @@ use std::path::{Component, Path, PathBuf};
 use idevice::IdeviceService;
 use idevice::installation_proxy::InstallationProxyClient;
 use idevice::lockdown::LockdownClient;
+use idevice::misagent::MisagentClient;
 use idevice::usbmuxd::{Connection, UsbmuxdAddr, UsbmuxdDevice};
 use idevice::utils::installation;
+use plume_core::MobileProvision;
 
 use crate::Error;
 use crate::options::SignerAppReal;
@@ -92,6 +94,22 @@ impl Device {
         }
 
         Ok(found_apps)
+    }
+
+    pub async fn install_profile(&self, profile: &MobileProvision) -> Result<(), Error> {
+        if self.usbmuxd_device.is_none() {
+            return Err(Error::Other("Device is not connected via USB".to_string()));
+        }
+
+        let provider = self.usbmuxd_device.clone().unwrap().to_provider(
+            UsbmuxdAddr::from_env_var().unwrap_or_default(),
+            INSTALLATION_LABEL,
+        );
+
+        let mut mc = MisagentClient::connect(&provider).await?;
+        mc.install(profile.data.clone()).await?;
+
+        Ok(())
     }
 
     pub async fn pair(&self) -> Result<(), Error> {
@@ -214,7 +232,10 @@ fn get_app_name_from_info(info: &Value) -> Option<String> {
     dict.get("CFBundleDisplayName")
         .and_then(|value| value.as_string())
         .or_else(|| dict.get("CFBundleName").and_then(|value| value.as_string()))
-        .or_else(|| dict.get("CFBundleExecutable").and_then(|value| value.as_string()))
+        .or_else(|| {
+            dict.get("CFBundleExecutable")
+                .and_then(|value| value.as_string())
+        })
         .map(|value| value.to_string())
 }
 

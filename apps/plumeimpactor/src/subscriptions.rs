@@ -231,10 +231,8 @@ pub(crate) async fn run_installation(
                 return Err("No teams available for this account".to_string());
             }
 
-            // Use the stored team_id from the account
             let team_id = account.team_id();
 
-            // Verify the team_id exists in the available teams
             if !team_id.is_empty() && !teams_response.teams.iter().any(|t| &t.team_id == team_id) {
                 return Err(format!(
                     "Stored team ID '{}' not found in available teams. Please update your team selection in Settings.",
@@ -242,7 +240,6 @@ pub(crate) async fn run_installation(
                 ));
             }
 
-            // If team_id is empty (old accounts), use the first team
             let team_id = if team_id.is_empty() {
                 &teams_response.teams[0].team_id
             } else {
@@ -410,10 +407,8 @@ pub(crate) async fn export_certificate(account: plume_store::GsaAccount) -> Resu
         return Err("No teams available for this account".to_string());
     }
 
-    // Use the stored team_id from the account
     let team_id = account.team_id();
 
-    // Verify the team_id exists in the available teams
     if !team_id.is_empty() && !teams_response.teams.iter().any(|t| &t.team_id == team_id) {
         return Err(format!(
             "Stored team ID '{}' not found in available teams. Please update your team selection in Settings.",
@@ -421,7 +416,6 @@ pub(crate) async fn export_certificate(account: plume_store::GsaAccount) -> Resu
         ));
     }
 
-    // If team_id is empty (old accounts), use the first team
     let team_id = if team_id.is_empty() {
         &teams_response.teams[0].team_id
     } else {

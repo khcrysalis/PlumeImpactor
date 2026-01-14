@@ -3689,15 +3689,21 @@ dependencies = [
  "async-stream",
  "async_zip",
  "base64 0.22.1",
+ "byteorder",
+ "bytes",
  "chrono",
  "crossfire",
  "futures",
  "indexmap",
+ "json",
+ "ns-keyed-archive",
  "plist",
  "rand 0.9.2",
+ "reqwest 0.12.23",
  "rsa",
  "rustls 0.23.32",
  "serde",
+ "serde_json",
  "sha2",
  "thiserror 2.0.17",
  "tokio",
@@ -3966,6 +3972,12 @@ dependencies = [
  "once_cell",
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "json"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
 
 [[package]]
 name = "kamadak-exif"
@@ -4547,6 +4559,26 @@ name = "noop_proc_macro"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0676bb32a98c1a483ce53e500a81ad9c3d5b3f7c920c28c24e9cb0980d0b5bc8"
+
+[[package]]
+name = "ns-keyed-archive"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bc340e0b7a5bb4b06338cafa693d0b585d597b024fff876c5dad385a00d83e7"
+dependencies = [
+ "nskeyedarchiver_converter",
+ "plist",
+]
+
+[[package]]
+name = "nskeyedarchiver_converter"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36c53158d1bf37bbbdd165f5220fda8bb5757c89eb700107992152c64c6cad7e"
+dependencies = [
+ "plist",
+ "thiserror 2.0.17",
+]
 
 [[package]]
 name = "num-bigint"
@@ -5597,6 +5629,7 @@ version = "1.4.1"
 name = "plume_store"
 version = "1.4.1"
 dependencies = [
+ "chrono",
  "plume_core",
  "serde",
  "serde_json",
@@ -5614,6 +5647,7 @@ dependencies = [
  "log",
  "plist",
  "plume_core",
+ "plume_store",
  "thiserror 2.0.17",
  "tokio",
  "uuid",

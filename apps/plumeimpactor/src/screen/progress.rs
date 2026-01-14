@@ -46,6 +46,14 @@ impl ProgressScreen {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::InstallationProgress(status, progress) => {
+                let mut status = status;
+                let mut progress = progress;
+
+                if progress >= 100 {
+                    progress = 100;
+                    status = "Finished!".to_string();
+                }
+
                 self.status = status.clone();
                 self.progress = progress;
 

@@ -135,28 +135,36 @@ jobs:
       - name: Build binaries (${{ matrix.arch }})
         run: |
           target_env=$(echo "${{ matrix.target }}" | tr '-' '_')
+          target_env_upper=$(echo "${target_env}" | tr '[:lower:]' '[:upper:]')
           prefix="${{ matrix.osxcross_prefix }}"
           osxcross_bin="$(dirname "$(command -v "${prefix}-clang")")"
-          ld_candidate=""
+          osxcross_root="$(cd "${osxcross_bin}/.." && pwd)"
+          sdk_dir="${osxcross_root}/SDK"
+          if [ -d "${sdk_dir}" ]; then
+            sdkroot="$(ls -d "${sdk_dir}"/MacOSX*.sdk 2>/dev/null | sort -V | tail -n1)"
+            if [ -n "${sdkroot}" ]; then
+              export SDKROOT="${sdkroot}"
+            fi
+          fi
+          export MACOSX_DEPLOYMENT_TARGET="11.0"
+          ld_path=""
           for name in "${prefix}-ld" "${prefix}-ld64" "ld64" "ld"; do
             if [ -x "${osxcross_bin}/${name}" ]; then
-              ld_candidate="${osxcross_bin}/${name}"
+              ld_path="${osxcross_bin}/${name}"
               break
             fi
           done
-          toolchain_bin="$(mktemp -d)"
-          if [ -n "${ld_candidate}" ]; then
-            ln -s "${ld_candidate}" "${toolchain_bin}/ld"
-            ln -s "${ld_candidate}" "${toolchain_bin}/ld64"
-          fi
-          export PATH="${toolchain_bin}:${osxcross_bin}:${PATH}"
           export "CC_${target_env}=${osxcross_bin}/${prefix}-clang"
           export "CXX_${target_env}=${osxcross_bin}/${prefix}-clang++"
           export "AR_${target_env}=${osxcross_bin}/${prefix}-ar"
           export "RANLIB_${target_env}=${osxcross_bin}/${prefix}-ranlib"
-          export "CFLAGS_${target_env}=-B${toolchain_bin} -B${osxcross_bin} -fuse-ld=ld64"
-          export "CXXFLAGS_${target_env}=-B${toolchain_bin} -B${osxcross_bin} -fuse-ld=ld64"
-          export "LDFLAGS_${target_env}=-B${toolchain_bin} -B${osxcross_bin} -fuse-ld=ld64"
+          export "CARGO_TARGET_${target_env_upper}_LINKER=${osxcross_bin}/${prefix}-clang"
+          if [ -n "${ld_path}" ]; then
+            export "CFLAGS_${target_env}=-fuse-ld=${ld_path}"
+            export "CXXFLAGS_${target_env}=-fuse-ld=${ld_path}"
+            export "LDFLAGS_${target_env}=-fuse-ld=${ld_path}"
+            export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }-C link-arg=-fuse-ld=${ld_path}"
+          fi
           cargo build --bins --workspace --release --target ${{ matrix.target }}
           mkdir -p dist
           cp target/${{ matrix.target }}/release/plumeimpactor dist/plumeimpactor-macos-${{ matrix.suffix }}

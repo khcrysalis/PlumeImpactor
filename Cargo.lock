@@ -5658,12 +5658,14 @@ dependencies = [
 name = "plumeimpactor"
 version = "1.4.1"
 dependencies = [
+ "chrono",
  "env_logger",
  "futures",
  "gtk",
  "iced",
  "idevice",
  "image",
+ "log",
  "open",
  "plist",
  "plume_core",

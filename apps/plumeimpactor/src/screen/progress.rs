@@ -72,6 +72,10 @@ impl ProgressScreen {
                 } else if progress >= 100 {
                     self.progress_rx = None;
                     self.is_installing = false;
+
+                    // Update tray menu after successful installation
+                    log::info!("Installation finished, sending InstallationFinished message");
+                    return Task::done(Message::InstallationFinished);
                 }
 
                 Task::none()

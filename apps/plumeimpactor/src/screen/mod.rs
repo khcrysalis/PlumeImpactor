@@ -18,6 +18,13 @@ use crate::tray::ImpactorTray;
 use crate::{appearance, defaults};
 use windows::login_window;
 
+static REFRESH_DAEMON_DEVICES: std::sync::OnceLock<crate::refresh::ConnectedDevices> =
+    std::sync::OnceLock::new();
+
+pub fn set_refresh_daemon_devices(devices: crate::refresh::ConnectedDevices) {
+    let _ = REFRESH_DAEMON_DEVICES.set(devices);
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Message {
@@ -36,6 +43,17 @@ pub enum Message {
     TrayIconClicked,
     #[cfg(target_os = "linux")]
     GtkTick,
+
+    // Refresh operations
+    RefreshAppNow {
+        udid: String,
+        app_path: String,
+    },
+    ForgetApp {
+        udid: String,
+        app_path: String,
+    },
+    UpdateTrayMenu,
 
     // Window management
     ShowWindow,
@@ -87,7 +105,9 @@ enum ImpactorScreen {
 
 impl Impactor {
     pub fn new() -> (Self, Task<Message>) {
-        let tray = ImpactorTray::new();
+        let mut tray = ImpactorTray::new();
+        let store = Self::init_account_store_sync();
+        tray.update_refresh_apps(&store);
         let (id, open_task) = window::open(defaults::default_window_settings());
 
         (
@@ -98,7 +118,7 @@ impl Impactor {
                 selected_device: None,
                 tray: Some(tray),
                 main_window: Some(id),
-                account_store: Some(Self::init_account_store_sync()),
+                account_store: Some(store),
                 login_windows: std::collections::HashMap::new(),
                 pending_installation: false,
             },
@@ -108,9 +128,7 @@ impl Impactor {
 
     fn init_account_store_sync() -> AccountStore {
         let path = defaults::get_data_path().join("accounts.json");
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(async { AccountStore::load(&Some(path)).await.unwrap_or_default() })
+        AccountStore::load_sync(&Some(path)).unwrap_or_default()
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -140,6 +158,12 @@ impl Impactor {
                     }
                 }
 
+                if let Some(daemon_devices) = REFRESH_DAEMON_DEVICES.get() {
+                    if let Ok(mut devices) = daemon_devices.lock() {
+                        devices.insert(device.udid.clone(), device.clone());
+                    }
+                }
+
                 if let ImpactorScreen::Utilities(_) = self.current_screen {
                     self.current_screen = ImpactorScreen::Utilities(
                         utilties::UtilitiesScreen::new(self.selected_device.clone()),
@@ -150,10 +174,22 @@ impl Impactor {
                 Task::none()
             }
             Message::DeviceDisconnected(id) => {
+                let udid = self
+                    .devices
+                    .iter()
+                    .find(|d| d.device_id == id)
+                    .map(|d| d.udid.clone());
+
                 self.devices.retain(|d| d.device_id != id);
 
                 if self.selected_device.as_ref().map(|d| d.device_id) == Some(id) {
                     self.selected_device = self.devices.first().cloned();
+                }
+
+                if let (Some(udid), Some(daemon_devices)) = (udid, REFRESH_DAEMON_DEVICES.get()) {
+                    if let Ok(mut devices) = daemon_devices.lock() {
+                        devices.remove(&udid);
+                    }
                 }
 
                 if let ImpactorScreen::Utilities(_) = self.current_screen {
@@ -221,10 +257,23 @@ impl Impactor {
             Message::TrayIconClicked => Task::done(Message::ShowWindow),
             Message::TrayMenuClicked(id) => {
                 if let Some(tray) = &self.tray {
-                    if tray.is_quit_clicked(&id) {
-                        Task::done(Message::Quit)
-                    } else if tray.is_show_clicked(&id) {
-                        Task::done(Message::ShowWindow)
+                    if let Some(action) = tray.get_action(&id) {
+                        match action {
+                            crate::tray::TrayAction::Show => Task::done(Message::ShowWindow),
+                            crate::tray::TrayAction::Quit => Task::done(Message::Quit),
+                            crate::tray::TrayAction::RefreshApp { udid, app_path } => {
+                                Task::done(Message::RefreshAppNow {
+                                    udid: udid.clone(),
+                                    app_path: app_path.clone(),
+                                })
+                            }
+                            crate::tray::TrayAction::ForgetApp { udid, app_path } => {
+                                Task::done(Message::ForgetApp {
+                                    udid: udid.clone(),
+                                    app_path: app_path.clone(),
+                                })
+                            }
+                        }
                     } else {
                         Task::none()
                     }
@@ -469,11 +518,129 @@ impl Impactor {
                 if let ImpactorScreen::Progress(ref mut screen) = self.current_screen {
                     match msg {
                         progress::Message::Back => Task::done(Message::PreviousScreen),
+                        progress::Message::InstallationFinished => {
+                            log::info!("Received InstallationFinished, triggering UpdateTrayMenu");
+                            Task::done(Message::UpdateTrayMenu)
+                        }
                         _ => screen.update(msg).map(Message::ProgressScreen),
                     }
                 } else {
                     Task::none()
                 }
+            }
+            Message::RefreshAppNow { udid, app_path } => {
+                if let Some(daemon_devices) = REFRESH_DAEMON_DEVICES.get() {
+                    let daemon_devices = daemon_devices.clone();
+                    let store_opt = self.account_store.clone();
+
+                    std::thread::spawn(move || {
+                        let rt = tokio::runtime::Builder::new_current_thread()
+                            .enable_all()
+                            .build()
+                            .unwrap();
+
+                        rt.block_on(async move {
+                            if let Some(store) = store_opt {
+                                if let Some(refresh_device) = store.get_refresh_device(&udid) {
+                                    if let Some(app) = refresh_device
+                                        .apps
+                                        .iter()
+                                        .find(|a| a.path.to_string_lossy() == app_path)
+                                    {
+                                        let start = std::time::Instant::now();
+                                        let timeout = std::time::Duration::from_secs(60);
+
+                                        let device_opt = loop {
+                                            if start.elapsed() > timeout {
+                                                eprintln!("Timeout waiting for device {}", udid);
+                                                break None;
+                                            }
+
+                                            if let Ok(devices) = daemon_devices.lock() {
+                                                if let Some(dev) = devices.get(&udid) {
+                                                    break Some(dev.clone());
+                                                }
+                                            }
+                                            tokio::time::sleep(std::time::Duration::from_secs(1))
+                                                .await;
+                                        };
+
+                                        if let Some(device) = device_opt {
+                                            let daemon = crate::refresh::RefreshDaemon::new();
+                                            if let Err(e) = daemon
+                                                .refresh_app(&store, refresh_device, app, &device)
+                                                .await
+                                            {
+                                                eprintln!("Failed to refresh app: {}", e);
+                                            } else {
+                                                println!(
+                                                    "Successfully refreshed app at {:?}",
+                                                    app.path
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    });
+                }
+                Task::done(Message::UpdateTrayMenu)
+            }
+            Message::ForgetApp { udid, app_path } => {
+                if let Some(store) = &mut self.account_store {
+                    if let Some(mut refresh_device) = store.get_refresh_device(&udid).cloned() {
+                        if let Some(app) = refresh_device
+                            .apps
+                            .iter()
+                            .find(|a| a.path.to_string_lossy() == app_path)
+                        {
+                            let app_path_buf = app.path.clone();
+                            std::thread::spawn(move || {
+                                if app_path_buf.exists() {
+                                    if let Err(e) = std::fs::remove_dir_all(&app_path_buf) {
+                                        eprintln!(
+                                            "Failed to delete app at {:?}: {}",
+                                            app_path_buf, e
+                                        );
+                                    } else {
+                                        println!("Deleted app at {:?}", app_path_buf);
+                                    }
+                                }
+                            });
+                        }
+
+                        refresh_device
+                            .apps
+                            .retain(|a| a.path.to_string_lossy() != app_path);
+
+                        if refresh_device.apps.is_empty() {
+                            let _ = store.remove_refresh_device_sync(&udid);
+                        } else {
+                            let _ = store.add_or_update_refresh_device_sync(refresh_device);
+                        }
+
+                        self.account_store = Some(Self::init_account_store_sync());
+                    }
+                }
+                Task::done(Message::UpdateTrayMenu)
+            }
+            Message::UpdateTrayMenu => {
+                log::info!("UpdateTrayMenu: Reloading account store");
+                self.account_store = Some(Self::init_account_store_sync());
+
+                if let Some(store) = &self.account_store {
+                    log::info!(
+                        "UpdateTrayMenu: Recreating tray with {} refresh devices",
+                        store.refreshes().len()
+                    );
+                    let mut new_tray = crate::tray::ImpactorTray::new();
+                    new_tray.update_refresh_apps(store);
+                    self.tray = Some(new_tray);
+                } else {
+                    log::warn!("UpdateTrayMenu: Store not available");
+                }
+                Task::none()
             }
             Message::StartInstallation => Task::none(),
         }
@@ -625,6 +792,7 @@ impl Impactor {
                 .account_store
                 .as_ref()
                 .and_then(|s| s.selected_account().cloned());
+            let mut store = self.account_store.clone();
 
             let (tx, rx) = std::sync::mpsc::channel();
             let progress_rx = std::sync::Arc::new(std::sync::Mutex::new(rx));
@@ -642,6 +810,7 @@ impl Impactor {
                         device.as_ref(),
                         &options,
                         account.as_ref(),
+                        store.as_mut(),
                         &tx,
                     )
                     .await
@@ -656,7 +825,7 @@ impl Impactor {
                 });
             });
 
-            Task::none()
+            Task::done(Message::UpdateTrayMenu)
         } else {
             Task::none()
         }

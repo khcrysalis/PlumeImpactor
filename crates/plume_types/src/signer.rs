@@ -157,6 +157,7 @@ impl Signer {
         bundle: &Bundle,
         session: &DeveloperSession,
         team_id: &String,
+        is_refresh: bool,
     ) -> Result<(), Error> {
         if self.options.mode != SignerMode::Pem {
             return Ok(());
@@ -221,25 +222,30 @@ impl Signer {
                 if let Some(app_groups) = macho.app_groups_for_entitlements() {
                     let mut app_group_ids: Vec<String> = Vec::new();
                     for group in &app_groups {
-                        let group = format!("{group}.{team_id}");
+                        let mut group_name = format!("{group}.{team_id}");
+
+                        if is_refresh {
+                            group_name = group.clone();
+                        }
                         let group_id = session
-                            .qh_ensure_app_group(&team_id, &group, &group)
+                            .qh_ensure_app_group(&team_id, &group_name, &group_name)
                             .await?;
                         app_group_ids.push(group_id.application_group);
                     }
-
-                    if signer_settings.app == SignerApp::SideStore
-                        || signer_settings.app == SignerApp::AltStore
-                    {
-                        bundle.set_info_plist_key(
-                            "ALTAppGroups",
-                            Value::Array(
-                                app_groups
-                                    .iter()
-                                    .map(|s| Value::String(format!("{s}.{team_id}")))
-                                    .collect(),
-                            ),
-                        )?;
+                    if !is_refresh {
+                        if signer_settings.app == SignerApp::SideStore
+                            || signer_settings.app == SignerApp::AltStore
+                        {
+                            bundle.set_info_plist_key(
+                                "ALTAppGroups",
+                                Value::Array(
+                                    app_groups
+                                        .iter()
+                                        .map(|s| Value::String(format!("{s}.{team_id}")))
+                                        .collect(),
+                                ),
+                            )?;
+                        }
                     }
 
                     session

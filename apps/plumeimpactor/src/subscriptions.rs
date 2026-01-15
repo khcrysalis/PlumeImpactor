@@ -3,7 +3,10 @@ use idevice::usbmuxd::{UsbmuxdConnection, UsbmuxdListenEvent};
 use std::sync::Arc;
 use tray_icon::{TrayIconEvent, menu::MenuEvent};
 
-use crate::screen::{Message, general};
+use crate::{
+    defaults::get_data_path,
+    screen::{Message, general},
+};
 use plume_utils::Device;
 
 pub(crate) fn device_listener() -> Subscription<Message> {
@@ -195,6 +198,7 @@ pub(crate) async fn run_installation(
     device: Option<&Device>,
     options: &plume_utils::SignerOptions,
     account: Option<&plume_store::GsaAccount>,
+    mut store: Option<&mut plume_store::AccountStore>,
     tx: &std::sync::mpsc::Sender<(String, i32)>,
 ) -> Result<(), String> {
     use plume_core::{AnisetteConfiguration, CertificateIdentity, developer::DeveloperSession};
@@ -277,7 +281,7 @@ pub(crate) async fn run_installation(
                 .await
                 .map_err(|e| e.to_string())?;
             signer
-                .register_bundle(&bundle, &session, team_id)
+                .register_bundle(&bundle, &session, team_id, false)
                 .await
                 .map_err(|e| e.to_string())?;
             signer
@@ -362,7 +366,7 @@ pub(crate) async fn run_installation(
             send("Exporting...".to_string(), 90);
 
             let archive_path = package
-                .get_archive_based_on_path(package_file)
+                .get_archive_based_on_path(&package_file)
                 .map_err(|e| e.to_string())?;
 
             let file = rfd::AsyncFileDialog::new()
@@ -380,6 +384,70 @@ pub(crate) async fn run_installation(
                 tokio::fs::copy(&archive_path, &save_path.path())
                     .await
                     .map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    if options.refresh && options.mode == SignerMode::Pem {
+        let path = get_data_path().join("refresh_store");
+        tokio::fs::create_dir_all(&path)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let original_name = package_file.file_name().unwrap().to_string_lossy();
+        let uuid = uuid::Uuid::new_v4();
+        let dest_name = if let Some(dot_pos) = original_name.rfind('.') {
+            let (name, ext) = original_name.split_at(dot_pos);
+            format!("{}-{}{}", name, uuid, ext)
+        } else {
+            format!("{}-{}", original_name, uuid)
+        };
+        let dest_path = path.join(dest_name);
+
+        plume_utils::copy_dir_recursively(&package_file, &dest_path)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if let (Some(dev), Some(account), Some(store)) = (&device, &account, store.as_mut()) {
+            let embedded_prov_path = dest_path.join("embedded.mobileprovision");
+            if embedded_prov_path.exists() {
+                use plume_core::MobileProvision;
+
+                if let Ok(provision) = MobileProvision::load_with_path(&embedded_prov_path) {
+                    let expiration_date = provision.expiration_date().clone();
+                    let scheduled_refresh = expiration_date
+                        .to_xml_format()
+                        .parse::<chrono::DateTime<chrono::Utc>>()
+                        .unwrap_or_else(|_| chrono::Utc::now() + chrono::Duration::days(6));
+                    let scheduled_refresh = scheduled_refresh - chrono::Duration::days(1);
+
+                    let refresh_app = plume_store::RefreshApp {
+                        path: dest_path.clone(),
+                        scheduled_refresh,
+                    };
+
+                    let mut refresh_device = store
+                        .get_refresh_device(&dev.udid)
+                        .cloned()
+                        .unwrap_or_else(|| plume_store::RefreshDevice {
+                            udid: dev.udid.clone(),
+                            account: account.email().clone(),
+                            apps: Vec::new(),
+                            is_mac: dev.is_mac,
+                        });
+
+                    if let Some(existing_app) =
+                        refresh_device.apps.iter_mut().find(|a| a.path == dest_path)
+                    {
+                        *existing_app = refresh_app;
+                    } else {
+                        refresh_device.apps.push(refresh_app);
+                    }
+
+                    store
+                        .add_or_update_refresh_device_sync(refresh_device)
+                        .map_err(|e| e.to_string())?;
+                }
             }
         }
     }

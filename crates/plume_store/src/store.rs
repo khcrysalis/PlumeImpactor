@@ -5,12 +5,14 @@ use serde::{Deserialize, Serialize};
 
 use plume_core::Error;
 
-use crate::gsa_account::GsaAccount;
+use crate::{GsaAccount, RefreshDevice};
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct AccountStore {
-    selected_account: Option<String>,
-    accounts: HashMap<String, GsaAccount>,
+    selected_account: Option<String>,      // Email
+    accounts: HashMap<String, GsaAccount>, // Email -> GsaAccount
+    #[serde(default)]
+    refreshes: HashMap<String, RefreshDevice>, // UDID -> RefreshDevice (apps?)
     #[serde(skip)]
     path: Option<PathBuf>,
 }
@@ -22,6 +24,21 @@ impl AccountStore {
                 Self::default()
             } else {
                 let contents = tokio::fs::read_to_string(path).await?;
+                serde_json::from_str(&contents)?
+            };
+            settings.path = Some(path.clone());
+            Ok(settings)
+        } else {
+            Ok(Self::default())
+        }
+    }
+
+    pub fn load_sync(path: &Option<PathBuf>) -> Result<Self, Error> {
+        if let Some(path) = path {
+            let mut settings = if !path.exists() {
+                Self::default()
+            } else {
+                let contents = std::fs::read_to_string(path)?;
                 serde_json::from_str(&contents)?
             };
             settings.path = Some(path.clone());
@@ -55,6 +72,10 @@ impl AccountStore {
 
     pub fn accounts(&self) -> &HashMap<String, GsaAccount> {
         &self.accounts
+    }
+
+    pub fn path(&self) -> Option<PathBuf> {
+        self.path.clone()
     }
 
     pub fn get_account(&self, email: &str) -> Option<&GsaAccount> {
@@ -157,5 +178,39 @@ impl AccountStore {
         } else {
             Err(Error::Parse)
         }
+    }
+
+    pub fn refreshes(&self) -> &HashMap<String, RefreshDevice> {
+        &self.refreshes
+    }
+
+    pub fn get_refresh_device(&self, udid: &str) -> Option<&RefreshDevice> {
+        self.refreshes.get(udid)
+    }
+
+    pub async fn add_or_update_refresh_device(
+        &mut self,
+        device: RefreshDevice,
+    ) -> Result<(), Error> {
+        self.refreshes.insert(device.udid.clone(), device);
+        self.save().await
+    }
+
+    pub fn add_or_update_refresh_device_sync(
+        &mut self,
+        device: RefreshDevice,
+    ) -> Result<(), Error> {
+        self.refreshes.insert(device.udid.clone(), device);
+        self.save_sync()
+    }
+
+    pub async fn remove_refresh_device(&mut self, udid: &str) -> Result<(), Error> {
+        self.refreshes.remove(udid);
+        self.save().await
+    }
+
+    pub fn remove_refresh_device_sync(&mut self, udid: &str) -> Result<(), Error> {
+        self.refreshes.remove(udid);
+        self.save_sync()
     }
 }

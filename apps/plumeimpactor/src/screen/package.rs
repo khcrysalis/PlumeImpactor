@@ -18,6 +18,7 @@ pub enum Message {
     ToggleProMotion(bool),
     ToggleSingleProfile(bool),
     ToggleLiquidGlass(bool),
+    ToggleRefresh(bool),
     UpdateSignerMode(SignerMode),
     UpdateInstallMode(SignerInstallMode),
     AddTweak,
@@ -111,6 +112,10 @@ impl PackageScreen {
             }
             Message::ToggleLiquidGlass(value) => {
                 self.options.features.support_liquid_glass = value;
+                Task::none()
+            }
+            Message::ToggleRefresh(value) => {
+                self.options.refresh = value;
                 Task::none()
             }
             Message::UpdateSignerMode(mode) => {
@@ -266,6 +271,9 @@ impl PackageScreen {
             checkbox(self.options.features.support_liquid_glass)
                 .label("Force Liquid Glass (26+)")
                 .on_toggle(Message::ToggleLiquidGlass),
+            checkbox(self.options.refresh)
+                .label("Auto Refresh")
+                .on_toggle(Message::ToggleRefresh),
             text("Mode:").size(12),
             pick_list(
                 &[SignerInstallMode::Install, SignerInstallMode::Export][..],

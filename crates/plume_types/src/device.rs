@@ -307,7 +307,13 @@ pub async fn install_app_mac(app_path: &PathBuf) -> Result<(), Error> {
     )
     .await?;
 
-    let applications_dir = PathBuf::from("/Applications").join(app_name);
+    let applications_dir = PathBuf::from("/Applications/iOS");
+    fs::create_dir_all(&applications_dir).await?;
+
+    let applications_dir = applications_dir.join(app_name);
+
+    fs::remove_dir_all(&applications_dir).await.ok();
+
     fs::rename(&outer_app_dir, &applications_dir)
         .await
         .map_err(|_| Error::BundleFailedToCopy(applications_dir.to_string_lossy().into_owned()))?;

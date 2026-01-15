@@ -19,6 +19,8 @@ pub struct SignerOptions {
     pub tweaks: Option<Vec<std::path::PathBuf>>,
     /// App type.
     pub app: SignerApp,
+    /// Apply autorefresh
+    pub refresh: bool,
 }
 
 impl Default for SignerOptions {
@@ -33,6 +35,7 @@ impl Default for SignerOptions {
             install_mode: SignerInstallMode::default(),
             tweaks: None,
             app: SignerApp::Default,
+            refresh: false,
         }
     }
 }
@@ -63,6 +66,7 @@ pub struct SignerFeatures {
     pub support_game_mode: bool,
     pub support_pro_motion: bool,
     pub support_liquid_glass: bool,
+    pub support_ellekit: bool,
     pub remove_url_schemes: bool,
 }
 
@@ -131,10 +135,7 @@ impl SignerAppReal {
         }
     }
 
-    pub fn from_bundle_identifier_and_name(
-        identifier: Option<&str>,
-        name: Option<&str>,
-    ) -> Self {
+    pub fn from_bundle_identifier_and_name(identifier: Option<&str>, name: Option<&str>) -> Self {
         let app = SignerApp::from_bundle_identifier_or_name(identifier, name);
         Self {
             app,

@@ -634,9 +634,16 @@ impl Impactor {
                         "UpdateTrayMenu: Recreating tray with {} refresh devices",
                         store.refreshes().len()
                     );
-                    let mut new_tray = crate::tray::ImpactorTray::new();
-                    new_tray.update_refresh_apps(store);
-                    self.tray = Some(new_tray);
+                    match &mut self.tray {
+                        Some(existing_tray) => {
+                            existing_tray.update_refresh_apps(&store);
+                        }
+                        None => {
+                            let mut new_tray = ImpactorTray::new();
+                            new_tray.update_refresh_apps(&store);
+                            self.tray = Some(new_tray);
+                        }
+                    }
                 } else {
                     log::warn!("UpdateTrayMenu: Store not available");
                 }

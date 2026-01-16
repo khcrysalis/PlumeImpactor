@@ -32,7 +32,7 @@ pub enum TrayAction {
 }
 
 pub(crate) struct ImpactorTray {
-    icon: TrayIcon,
+    icon: Option<TrayIcon>,
     menu: Menu,
     show_item_id: MenuId,
     quit_item_id: MenuId,
@@ -54,10 +54,10 @@ impl ImpactorTray {
 
         let _ = tray_menu.append_items(&[&show_item, &PredefinedMenuItem::separator(), &quit_item]);
 
-        let icon = build_tray_icon(&tray_menu);
-
+        // Do not build the tray icon here to avoid a double registration
+        // during startup: `update_refresh_apps` will create the icon once.
         Self {
-            icon,
+            icon: None,
             menu: tray_menu,
             show_item_id,
             quit_item_id,
@@ -147,8 +147,13 @@ impl ImpactorTray {
         self.quit_item_id = quit_item.id().clone();
 
         log::info!("Rebuilding tray icon with new menu");
+
+        if let Some(old_icon) = self.icon.take() {
+            drop(old_icon);
+        }
+
         let new_icon = build_tray_icon(&new_menu);
-        self.icon = new_icon;
+        self.icon = Some(new_icon);
 
         self.menu = new_menu;
         self.action_map = action_map;

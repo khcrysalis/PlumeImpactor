@@ -7,7 +7,7 @@ use crate::{
     defaults::get_data_path,
     screen::{Message, general},
 };
-use plume_utils::Device;
+use plume_utils::{Bundle, Device, PlistInfoTrait};
 
 pub(crate) fn device_listener() -> Subscription<Message> {
     Subscription::run(|| {
@@ -204,7 +204,7 @@ pub(crate) async fn run_installation(
     use plume_core::{AnisetteConfiguration, CertificateIdentity, developer::DeveloperSession};
     use plume_utils::{Signer, SignerInstallMode, SignerMode};
 
-    let package_file: std::path::PathBuf;
+    let package_file: Bundle;
     let mut options = options.clone();
     let send = |msg: String, progress: i32| {
         let _ = tx.send((msg, progress));
@@ -290,7 +290,7 @@ pub(crate) async fn run_installation(
                 .map_err(|e| e.to_string())?;
 
             options = signer.options.clone();
-            package_file = bundle.bundle_dir().to_path_buf();
+            package_file = bundle;
         }
         SignerMode::Adhoc => {
             send("Extracting package...".to_string(), 50);
@@ -311,14 +311,14 @@ pub(crate) async fn run_installation(
                 .map_err(|e| e.to_string())?;
 
             options = signer.options.clone();
-            package_file = bundle.bundle_dir().to_path_buf();
+            package_file = bundle;
         }
         _ => {
             send("Extracting package...".to_string(), 50);
 
             let bundle = package.get_package_bundle().map_err(|e| e.to_string())?;
 
-            package_file = bundle.bundle_dir().to_path_buf();
+            package_file = bundle;
         }
     }
 
@@ -329,7 +329,11 @@ pub(crate) async fn run_installation(
             .await
             .map_err(|e| e.to_string())?;
 
-        let original_name = package_file.file_name().unwrap().to_string_lossy();
+        let original_name = package_file
+            .bundle_dir()
+            .file_name()
+            .unwrap()
+            .to_string_lossy();
         let uuid = uuid::Uuid::new_v4();
         let dest_name = if let Some(dot_pos) = original_name.rfind('.') {
             let (name, ext) = original_name.split_at(dot_pos);
@@ -339,7 +343,7 @@ pub(crate) async fn run_installation(
         };
         let dest_path = path.join(dest_name);
 
-        plume_utils::copy_dir_recursively(&package_file, &dest_path)
+        plume_utils::copy_dir_recursively(&package_file.bundle_dir(), &dest_path)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -364,6 +368,7 @@ pub(crate) async fn run_installation(
                     let scheduled_refresh = scheduled_refresh - chrono::Duration::days(1);
 
                     let refresh_app = plume_store::RefreshApp {
+                        name: package_file.get_name(),
                         path: dest_path.clone(),
                         scheduled_refresh,
                     };
@@ -373,6 +378,7 @@ pub(crate) async fn run_installation(
                         .cloned()
                         .unwrap_or_else(|| plume_store::RefreshDevice {
                             udid: dev.udid.clone(),
+                            name: dev.name.clone(),
                             account: account.email().clone(),
                             apps: Vec::new(),
                             is_mac: dev.is_mac,
@@ -389,11 +395,7 @@ pub(crate) async fn run_installation(
                     store
                         .add_or_update_refresh_device_sync(refresh_device)
                         .map_err(|e| e.to_string())?;
-                } else {
-                    eprintln!("Failed to load mobile provision from {:?}", prov_path);
                 }
-            } else {
-                eprintln!("No embedded provision found in {:?}", dest_path);
             }
         }
     }
@@ -405,7 +407,7 @@ pub(crate) async fn run_installation(
                     send("Installing...".to_string(), 80);
 
                     let tx_clone = tx.clone();
-                    dev.install_app(&package_file, move |progress: i32| {
+                    dev.install_app(&package_file.bundle_dir(), move |progress: i32| {
                         let tx = tx_clone.clone();
                         async move {
                             let _ = tx.send(("Installing...".to_string(), 80 + (progress / 5)));
@@ -430,7 +432,7 @@ pub(crate) async fn run_installation(
                 } else {
                     send("Installing...".to_string(), 90);
 
-                    plume_utils::install_app_mac(&package_file)
+                    plume_utils::install_app_mac(&package_file.bundle_dir())
                         .await
                         .map_err(|e| e.to_string())?;
                 }
@@ -442,7 +444,7 @@ pub(crate) async fn run_installation(
             send("Exporting...".to_string(), 90);
 
             let archive_path = package
-                .get_archive_based_on_path(&package_file)
+                .get_archive_based_on_path(&package_file.bundle_dir())
                 .map_err(|e| e.to_string())?;
 
             let file = rfd::AsyncFileDialog::new()

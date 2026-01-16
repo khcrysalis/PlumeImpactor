@@ -519,7 +519,6 @@ impl Impactor {
                     match msg {
                         progress::Message::Back => Task::done(Message::PreviousScreen),
                         progress::Message::InstallationFinished => {
-                            log::info!("Received InstallationFinished, triggering UpdateTrayMenu");
                             Task::done(Message::UpdateTrayMenu)
                         }
                         _ => screen.update(msg).map(Message::ProgressScreen),
@@ -626,14 +625,9 @@ impl Impactor {
                 Task::done(Message::UpdateTrayMenu)
             }
             Message::UpdateTrayMenu => {
-                log::info!("UpdateTrayMenu: Reloading account store");
                 self.account_store = Some(Self::init_account_store_sync());
 
                 if let Some(store) = &self.account_store {
-                    log::info!(
-                        "UpdateTrayMenu: Recreating tray with {} refresh devices",
-                        store.refreshes().len()
-                    );
                     match &mut self.tray {
                         Some(existing_tray) => {
                             existing_tray.update_refresh_apps(&store);
@@ -644,8 +638,6 @@ impl Impactor {
                             self.tray = Some(new_tray);
                         }
                     }
-                } else {
-                    log::warn!("UpdateTrayMenu: Store not available");
                 }
                 Task::none()
             }

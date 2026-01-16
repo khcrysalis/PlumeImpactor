@@ -64,11 +64,6 @@ impl ImpactorTray {
     }
 
     pub(crate) fn update_refresh_apps(&mut self, store: &plume_store::AccountStore) {
-        log::info!(
-            "Updating tray menu with {} refresh devices",
-            store.refreshes().len()
-        );
-
         let new_menu = Menu::new();
         let show_item = MenuItem::new("Open", true, None);
 
@@ -78,59 +73,61 @@ impl ImpactorTray {
         let _ = new_menu.append(&show_item);
         let _ = new_menu.append(&PredefinedMenuItem::separator());
 
-        if !store.refreshes().is_empty() {
+        let has_apps = store.refreshes().values().any(|d| !d.apps.is_empty());
+
+        if has_apps {
             let refresh_submenu = Submenu::new("Auto-Refresh Apps", true);
 
             for (udid, refresh_device) in store.refreshes() {
-                let device_name = if refresh_device.is_mac {
-                    "This Mac".to_string()
-                } else {
-                    format!("Device {}", &udid[..8.min(udid.len())])
-                };
-
-                if !refresh_device.apps.is_empty() {
-                    let device_submenu = Submenu::new(&device_name, true);
-
-                    for app in &refresh_device.apps {
-                        let app_name = app
-                            .path
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("Unknown App");
-
-                        let scheduled = app.scheduled_refresh.format("%Y-%m-%d %H:%M").to_string();
-
-                        let app_submenu =
-                            Submenu::new(&format!("{} ({})", app_name, scheduled), true);
-
-                        let refresh_item = MenuItem::new("Refresh Now", true, None);
-                        let forget_item = MenuItem::new("Forget App", true, None);
-
-                        let refresh_id = refresh_item.id().clone();
-                        let forget_id = forget_item.id().clone();
-
-                        action_map.insert(
-                            refresh_id,
-                            TrayAction::RefreshApp {
-                                udid: udid.clone(),
-                                app_path: app.path.to_string_lossy().to_string(),
-                            },
-                        );
-                        action_map.insert(
-                            forget_id,
-                            TrayAction::ForgetApp {
-                                udid: udid.clone(),
-                                app_path: app.path.to_string_lossy().to_string(),
-                            },
-                        );
-
-                        let _ = app_submenu.append(&refresh_item);
-                        let _ = app_submenu.append(&forget_item);
-                        let _ = device_submenu.append(&app_submenu);
-                    }
-
-                    let _ = refresh_submenu.append(&device_submenu);
+                if refresh_device.apps.is_empty() {
+                    continue;
                 }
+
+                let device_label = MenuItem::with_id(
+                    MenuId::new(format!("header-{}", udid)),
+                    &refresh_device.name,
+                    false,
+                    None,
+                );
+                let _ = refresh_submenu.append(&device_label);
+
+                for app in &refresh_device.apps {
+                    let scheduled = app.scheduled_refresh.format("%H:%M %b %d").to_string();
+
+                    let app_submenu = Submenu::new(
+                        &format!(
+                            "{} (Next: {})",
+                            app.name.clone().unwrap_or("???".to_string()),
+                            scheduled
+                        ),
+                        true,
+                    );
+
+                    let refresh_item = MenuItem::new("Refresh Now", true, None);
+                    let forget_item = MenuItem::new("Forget App", true, None);
+
+                    action_map.insert(
+                        refresh_item.id().clone(),
+                        TrayAction::RefreshApp {
+                            udid: udid.clone(),
+                            app_path: app.path.to_string_lossy().to_string(),
+                        },
+                    );
+                    action_map.insert(
+                        forget_item.id().clone(),
+                        TrayAction::ForgetApp {
+                            udid: udid.clone(),
+                            app_path: app.path.to_string_lossy().to_string(),
+                        },
+                    );
+
+                    let _ = app_submenu.append(&refresh_item);
+                    let _ = app_submenu.append(&forget_item);
+
+                    let _ = refresh_submenu.append(&app_submenu);
+                }
+
+                let _ = refresh_submenu.append(&PredefinedMenuItem::separator());
             }
 
             let _ = new_menu.append(&refresh_submenu);
@@ -144,10 +141,9 @@ impl ImpactorTray {
         self.show_item_id = show_item.id().clone();
         self.quit_item_id = quit_item.id().clone();
 
-        log::info!("Rebuilding tray icon with new menu");
-
         self.menu = new_menu;
         self.action_map = action_map;
+
         if let Some(tray_icon) = &mut self.icon {
             let _ = tray_icon.set_menu(Some(Box::new(self.menu.clone())));
         }

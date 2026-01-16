@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RefreshDevice {
     pub udid: String,          // Device UDID
+    pub name: String,          // Device name
     pub account: String,       // Email
     pub apps: Vec<RefreshApp>, // Device apps to refresh
     pub is_mac: bool,          // m1 sideloading
@@ -15,6 +16,7 @@ pub struct RefreshDevice {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RefreshApp {
     pub path: PathBuf,
+    pub name: Option<String>,
     pub scheduled_refresh: DateTime<Utc>, // the scheduled refresh time will happen a day before expiration
 }
 

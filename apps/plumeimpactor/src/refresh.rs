@@ -111,12 +111,19 @@ impl RefreshDaemon {
     ) -> Result<(), String> {
         log::info!("Starting refresh for app at {:?}", app.path);
 
-        notify_rust::get_bundle_identifier_or_default("Impactor");
-        let _ = notify_rust::set_application("dev.khcrysalis.PlumeImpactor");
+        #[cfg(target_os = "macos")]
+        {
+            notify_rust::get_bundle_identifier_or_default("Impactor");
+            let _ = notify_rust::set_application("dev.khcrysalis.PlumeImpactor");
+        }
 
         notify_rust::Notification::new()
             .summary("Impactor")
-            .body(&format!("Started refreshing app at {:?}", app.path))
+            .body(&format!(
+                "Started refreshing {} for {}",
+                app.name.as_deref().unwrap_or("???"),
+                &refresh_device.name
+            ))
             .show()
             .ok();
 
@@ -184,7 +191,11 @@ impl RefreshDaemon {
 
         notify_rust::Notification::new()
             .summary("Impactor")
-            .body(&format!("Successfully refreshed app at {:?}", app.path))
+            .body(&format!(
+                "Successfully refreshed {} for {}",
+                app.name.as_deref().unwrap_or("???"),
+                &refresh_device.name
+            ))
             .show()
             .ok();
 

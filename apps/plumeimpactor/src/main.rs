@@ -2,6 +2,9 @@
 
 use crate::refresh::spawn_refresh_daemon;
 
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+use single_instance::SingleInstance;
+
 mod appearance;
 mod defaults;
 mod refresh;
@@ -15,6 +18,21 @@ pub const APP_NAME_VERSIONED: &str = concat!("Impactor", " - Version ", env!("CA
 fn main() -> iced::Result {
     env_logger::init();
     let _ = rustls::crypto::ring::default_provider().install_default();
+
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    let _single_instance = match SingleInstance::new(APP_NAME) {
+        Ok(instance) => {
+            if !instance.is_single() {
+                log::info!("Another instance is already running; exiting.");
+                return Ok(());
+            }
+            Some(instance)
+        }
+        Err(err) => {
+            log::warn!("Failed to acquire single-instance lock: {err}");
+            None
+        }
+    };
 
     #[cfg(target_os = "linux")]
     {

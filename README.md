@@ -122,6 +122,16 @@ sudo dnf install clang-devel pkg-config gtk3-devel libpng-devel libjpeg-devel me
 | <img src="https://raw.githubusercontent.com/khcrysalis/github-sponsor-graph/main/graph.png"> |
 | _**"samara is cute" - Vendicated**_ |
 
+## Star History
+
+<a href="https://star-history.com/#khcrysalis/plumeimpactor&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=khcrysalis/plumeimpactor&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=khcrysalis/plumeimpactor&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=khcrysalis/plumeimpactor&type=Date" />
+ </picture>
+</a>
+
 ## Acknowledgements
 
 - [SAMSAM](https://github.com/khcrysalis) – The maker.

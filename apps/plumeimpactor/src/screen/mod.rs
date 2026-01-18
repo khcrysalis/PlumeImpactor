@@ -576,12 +576,22 @@ impl Impactor {
                                                 .refresh_app(&store, refresh_device, app, &device)
                                                 .await
                                             {
-                                                log::error!("Failed to refresh app: {}", e);
-                                            } else {
-                                                log::info!(
-                                                    "Successfully refreshed app at {:?}",
-                                                    app.path
+                                                log::error!(
+                                                    "Failed to refresh app at {:?} on device {}: {}",
+                                                    app.path,
+                                                    udid,
+                                                    e
                                                 );
+                                                notify_rust::Notification::new()
+                                                    .summary("Impactor")
+                                                    .body(&format!(
+                                                        "Failed to refresh {} for {}: {}",
+                                                        app.name.as_deref().unwrap_or("???"),
+                                                        &refresh_device.name,
+                                                        e
+                                                    ))
+                                                    .show()
+                                                    .ok();
                                             }
                                         }
                                     }

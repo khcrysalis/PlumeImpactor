@@ -43,6 +43,11 @@ impl RefreshDaemon {
             loop {
                 if let Err(e) = rt.block_on(self.check_and_refresh()) {
                     log::error!("Refresh daemon error: {}", e);
+                    notify_rust::Notification::new()
+                        .summary("Impactor")
+                        .body(&format!("Failed to refresh: {}", e))
+                        .show()
+                        .ok();
                 }
 
                 thread::sleep(self.check_interval);

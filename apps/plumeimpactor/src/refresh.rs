@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -14,9 +14,24 @@ use crate::defaults::get_data_path;
 
 pub type ConnectedDevices = Arc<Mutex<HashMap<String, Device>>>;
 
+struct RefreshGuard {
+    udid: String,
+    tasks: Arc<Mutex<HashSet<String>>>,
+}
+
+impl Drop for RefreshGuard {
+    fn drop(&mut self) {
+        if let Ok(mut tasks) = self.tasks.lock() {
+            tasks.remove(&self.udid);
+            log::debug!("Released lock for device {}", self.udid);
+        }
+    }
+}
+
 pub struct RefreshDaemon {
     store_path: std::path::PathBuf,
     connected_devices: ConnectedDevices,
+    active_tasks: Arc<Mutex<HashSet<String>>>,
     check_interval: Duration,
 }
 
@@ -25,6 +40,7 @@ impl RefreshDaemon {
         Self {
             store_path: get_data_path().join("accounts.json"),
             connected_devices: Arc::new(Mutex::new(HashMap::new())),
+            active_tasks: Arc::new(Mutex::new(HashSet::new())),
             check_interval: Duration::from_secs(60 * 30), // Check every 30 minutes
         }
     }
@@ -65,12 +81,25 @@ impl RefreshDaemon {
         for (udid, refresh_device) in store.refreshes() {
             for app in &refresh_device.apps {
                 if app.scheduled_refresh <= now {
+                    // We check for active tasks here to prevent the background loop
+                    // from even starting a wait if a manual refresh is already running.
+                    if self.is_busy(udid) {
+                        log::info!(
+                            "Device {} is already being processed. Skipping this app for now.",
+                            udid
+                        );
+                        continue;
+                    }
+
                     log::info!("App at {:?} needs refresh for device {}", app.path, udid);
 
+                    // Note: wait_for_device might take a long time.
+                    // refresh_app will double-check the lock once the device is found.
                     let device = self.wait_for_device(udid).await?;
 
-                    self.refresh_app(&store, refresh_device, app, &device)
-                        .await?;
+                    if let Err(e) = self.refresh_app(&store, refresh_device, app, &device).await {
+                        log::error!("Error refreshing app: {}", e);
+                    }
                 }
             }
         }
@@ -78,15 +107,15 @@ impl RefreshDaemon {
         Ok(())
     }
 
+    fn is_busy(&self, udid: &str) -> bool {
+        self.active_tasks
+            .lock()
+            .map(|t| t.contains(udid))
+            .unwrap_or(false)
+    }
+
     async fn wait_for_device(&self, udid: &str) -> Result<Device, String> {
         log::info!("Waiting for device {} to connect...", udid);
-
-        if let Ok(devices) = self.connected_devices.lock() {
-            if let Some(device) = devices.get(udid) {
-                log::info!("Device {} is already connected", udid);
-                return Ok(device.clone());
-            }
-        }
 
         let timeout = Duration::from_secs(60 * 60); // 1 hour timeout
         let start = std::time::Instant::now();
@@ -114,6 +143,28 @@ impl RefreshDaemon {
         app: &plume_store::RefreshApp,
         device: &Device,
     ) -> Result<(), String> {
+        // Try to acquire the lock for this UDID.
+        {
+            let mut tasks = self
+                .active_tasks
+                .lock()
+                .map_err(|_| "Failed to lock task registry")?;
+            if tasks.contains(&device.udid) {
+                log::warn!(
+                    "Refresh already in progress for {}. Aborting duplicate.",
+                    device.udid
+                );
+                return Ok(());
+            }
+            tasks.insert(device.udid.clone());
+        }
+
+        // lock is released when this function returns
+        let _guard = RefreshGuard {
+            udid: device.udid.clone(),
+            tasks: self.active_tasks.clone(),
+        };
+
         log::info!("Starting refresh for app at {:?}", app.path);
 
         notify_rust::Notification::new()
@@ -175,6 +226,11 @@ impl RefreshDaemon {
             false
         };
 
+        // Determine if we need to reinstall:
+        // - Mac devices always need reinstalling
+        // - If the identity is new, we need to reinstall
+        // - If the app is not installed, we need to reinstall
+        // - If the app is installed and identity is not new, we can just update profiles
         let needs_reinstall = device.is_mac || identity_is_new || !is_installed;
 
         if needs_reinstall {

@@ -64,7 +64,7 @@ Supported apps:
 - `Protokolle`
 - `StikDebug`
 
-You can retrieve this file by either sideloading the supported app of your choice, or going to the `Utilities` page when a device is connected and press install for the supported app.
+You can retrieve this file by either sideloading the supported app of your choice, or going to the `Utilities` page when a device is connected and press install for the supported app. Head over to the [downloads](https://github.com/khcrysalis/PlumeImpactor/releases).
 
 ## Structure
 

@@ -239,6 +239,8 @@ jobs:
     runs-on: ubuntu-22.04
     needs: [build-linux, build-windows-installer, build-macos-universal]
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download Linux x86_64 Artifact
         uses: actions/download-artifact@v4
         with:

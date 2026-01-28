@@ -25,7 +25,13 @@ pub(crate) fn default_window_settings() -> window::Settings {
         ..Default::default()
     };
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "linux")]
+    let platform_specific = window::settings::PlatformSpecific {
+        application_id: String::from("dev.khcrysalis.PlumeImpactor"),
+        ..Default::default()
+    };
+
+    #[cfg(target_os = "windows")]
     let platform_specific = window::settings::PlatformSpecific::default();
 
     window::Settings {
